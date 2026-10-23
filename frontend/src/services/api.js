@@ -108,6 +108,7 @@ export const api = {
     if (params.employee_id) searchParams.append('employee_id', params.employee_id);
     if (params.start_date) searchParams.append('start_date', params.start_date);
     if (params.end_date) searchParams.append('end_date', params.end_date);
+    if (params.only_late) searchParams.append('only_late', 'true');
     const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
     return request(`/attendance/history${queryString}`);
   },
@@ -118,7 +119,14 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Leaves
+  autoMarkAbsent: (targetDate) => {
+    const query = targetDate ? `?target_date=${targetDate}` : '';
+    return request(`/attendance/auto-mark-absent${query}`, {
+      method: 'POST',
+    });
+  },
+
+  // Leaves & Balances
   getLeaves: (params = {}) => {
     const searchParams = new URLSearchParams();
     if (params.status) searchParams.append('status', params.status);
@@ -139,6 +147,19 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
 
+  getLeavePolicies: () => request('/leaves/policies'),
+
+  updateLeavePolicy: (policyData) =>
+    request('/leaves/policies', {
+      method: 'POST',
+      body: JSON.stringify(policyData),
+    }),
+
+  getLeaveBalances: (employeeId) => {
+    const query = employeeId ? `?employee_id=${employeeId}` : '';
+    return request(`/leaves/balances${query}`);
+  },
+
   // Payroll
   getPayrollList: (params = {}) => {
     const searchParams = new URLSearchParams();
@@ -150,6 +171,11 @@ export const api = {
 
   getPayrollItem: (id) => request(`/payroll/${id}`),
 
+  getPayrollSummary: (month) => {
+    const query = month ? `?month=${encodeURIComponent(month)}` : '';
+    return request(`/payroll/summary${query}`);
+  },
+
   generatePayroll: (payrollData) =>
     request('/payroll/generate', {
       method: 'POST',
@@ -158,6 +184,40 @@ export const api = {
 
   // Dashboard & Analytics
   getDashboardStats: () => request('/dashboard/stats'),
+
+  // Admin Controls (Module 13)
+  getAdminUsers: () => request('/admin/users'),
+
+  createAdminUser: (userData) =>
+    request('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    }),
+
+  updateUserRole: (userId, role) =>
+    request(`/admin/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),
+
+  toggleUserStatus: (userId, isActive) =>
+    request(`/admin/users/${userId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_active: isActive }),
+    }),
+
+  resetUserPassword: (userId, newPassword) =>
+    request(`/admin/users/${userId}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ new_password: newPassword }),
+    }),
+
+  deleteUser: (userId) =>
+    request(`/admin/users/${userId}`, {
+      method: 'DELETE',
+    }),
+
+  getAdminSystemStats: () => request('/admin/system-stats'),
 
   // Notifications
   getNotifications: () => request('/notifications'),

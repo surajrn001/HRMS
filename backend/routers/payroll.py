@@ -5,10 +5,30 @@ from datetime import datetime
 
 from database import get_db
 from models import Payroll, Employee, User, UserRole, Notification
-from schemas import PayrollCreate, PayrollOut
+from schemas import PayrollCreate, PayrollOut, PayrollSummaryOut
 from auth import get_current_user, require_roles
 
-router = APIRouter(prefix="/api/payroll", tags=["Payroll Management"])
+router = APIRouter(prefix="/api/payroll", tags=["Payroll Enhancements"])
+
+def _to_payroll_out(p: Payroll, emp: Optional[Employee] = None) -> PayrollOut:
+    employee = emp or p.employee
+    return PayrollOut(
+        id=p.id,
+        employee_id=p.employee_id,
+        employee_name=employee.full_name if employee else None,
+        department=employee.department if employee else None,
+        designation=employee.designation if employee else None,
+        basic_salary=p.basic_salary,
+        hra=p.hra,
+        special_allowance=p.special_allowance,
+        bonus=p.bonus,
+        pf_deduction=p.pf_deduction,
+        tax_deduction=p.tax_deduction,
+        deductions=p.deductions,
+        net_salary=p.net_salary,
+        month=p.month,
+        created_at=p.created_at
+    )
 
 @router.get("", response_model=List[PayrollOut])
 def get_payroll_list(
@@ -23,31 +43,45 @@ def get_payroll_list(
         if not current_user.employee:
             return []
         query = query.filter(Payroll.employee_id == current_user.employee.id)
-    else:
-        if employee_id:
-            query = query.filter(Payroll.employee_id == employee_id)
+    elif employee_id:
+        query = query.filter(Payroll.employee_id == employee_id)
 
     if month:
         query = query.filter(Payroll.month == month)
 
     payrolls = query.order_by(Payroll.created_at.desc()).all()
+    return [_to_payroll_out(p) for p in payrolls]
 
-    result = []
-    for p in payrolls:
-        result.append(PayrollOut(
-            id=p.id,
-            employee_id=p.employee_id,
-            employee_name=p.employee.full_name if p.employee else None,
-            department=p.employee.department if p.employee else None,
-            designation=p.employee.designation if p.employee else None,
-            basic_salary=p.basic_salary,
-            deductions=p.deductions,
-            bonus=p.bonus,
-            net_salary=p.net_salary,
-            month=p.month,
-            created_at=p.created_at
-        ))
-    return result
+@router.get("/summary", response_model=PayrollSummaryOut)
+def get_payroll_summary(
+    month: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.HR]))
+):
+    query = db.query(Payroll)
+    if month:
+        query = query.filter(Payroll.month == month)
+        target_month = month
+    else:
+        latest = query.order_by(Payroll.id.desc()).first()
+        target_month = latest.month if latest else "Current"
+        query = query.filter(Payroll.month == target_month)
+
+    records = query.all()
+    total_basic = sum(p.basic_salary for p in records)
+    total_allow = sum(p.hra + p.special_allowance + p.bonus for p in records)
+    total_ded = sum(p.deductions for p in records)
+    total_net = sum(p.net_salary for p in records)
+
+    return PayrollSummaryOut(
+        month=target_month,
+        total_employees=len(records),
+        total_gross_disbursed=round(total_basic + total_allow, 2),
+        total_basic=round(total_basic, 2),
+        total_allowances=round(total_allow, 2),
+        total_deductions=round(total_ded, 2),
+        total_net_disbursed=round(total_net, 2)
+    )
 
 @router.get("/{payroll_id}", response_model=PayrollOut)
 def get_payroll_item(
@@ -63,19 +97,7 @@ def get_payroll_item(
         if not current_user.employee or p.employee_id != current_user.employee.id:
             raise HTTPException(status_code=403, detail="Not authorized to view this payslip")
 
-    return PayrollOut(
-        id=p.id,
-        employee_id=p.employee_id,
-        employee_name=p.employee.full_name if p.employee else None,
-        department=p.employee.department if p.employee else None,
-        designation=p.employee.designation if p.employee else None,
-        basic_salary=p.basic_salary,
-        deductions=p.deductions,
-        bonus=p.bonus,
-        net_salary=p.net_salary,
-        month=p.month,
-        created_at=p.created_at
-    )
+    return _to_payroll_out(p)
 
 @router.post("/generate", response_model=PayrollOut, status_code=status.HTTP_201_CREATED)
 def generate_payroll(
@@ -87,27 +109,44 @@ def generate_payroll(
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # Check if payroll for this month and employee already exists
+    basic = payroll_in.basic_salary
+    hra = payroll_in.hra or round(basic * 0.40, 2)
+    special = payroll_in.special_allowance or round(basic * 0.20, 2)
+    bonus = payroll_in.bonus or 0.0
+
+    pf = payroll_in.pf_deduction or round(basic * 0.12, 2)
+    tax = payroll_in.tax_deduction or round(basic * 0.05 + 200.0, 2)
+    total_deductions = payroll_in.deductions or round(pf + tax, 2)
+
+    gross = basic + hra + special + bonus
+    net = round(gross - total_deductions, 2)
+
     existing = db.query(Payroll).filter(
         Payroll.employee_id == payroll_in.employee_id,
         Payroll.month == payroll_in.month
     ).first()
 
-    net_calculated = round(payroll_in.basic_salary + payroll_in.bonus - payroll_in.deductions, 2)
-
     if existing:
-        existing.basic_salary = payroll_in.basic_salary
-        existing.deductions = payroll_in.deductions
-        existing.bonus = payroll_in.bonus
-        existing.net_salary = net_calculated
+        existing.basic_salary = basic
+        existing.hra = hra
+        existing.special_allowance = special
+        existing.bonus = bonus
+        existing.pf_deduction = pf
+        existing.tax_deduction = tax
+        existing.deductions = total_deductions
+        existing.net_salary = net
         record = existing
     else:
         record = Payroll(
             employee_id=payroll_in.employee_id,
-            basic_salary=payroll_in.basic_salary,
-            deductions=payroll_in.deductions,
-            bonus=payroll_in.bonus,
-            net_salary=net_calculated,
+            basic_salary=basic,
+            hra=hra,
+            special_allowance=special,
+            bonus=bonus,
+            pf_deduction=pf,
+            tax_deduction=tax,
+            deductions=total_deductions,
+            net_salary=net,
             month=payroll_in.month,
             created_at=datetime.utcnow()
         )
@@ -116,26 +155,12 @@ def generate_payroll(
     db.commit()
     db.refresh(record)
 
-    # Trigger notification to employee
     if emp.user:
-        notif = Notification(
+        db.add(Notification(
             user_id=emp.user.id,
             title=f"Payslip Generated for {record.month}",
-            message=f"Your payslip for {record.month} is now available. Net Salary: ${record.net_salary:,.2f}."
-        )
-        db.add(notif)
+            message=f"Payslip for {record.month} generated. Net Disbursed: ₹{record.net_salary:,.2f}."
+        ))
         db.commit()
 
-    return PayrollOut(
-        id=record.id,
-        employee_id=record.employee_id,
-        employee_name=emp.full_name,
-        department=emp.department,
-        designation=emp.designation,
-        basic_salary=record.basic_salary,
-        deductions=record.deductions,
-        bonus=record.bonus,
-        net_salary=record.net_salary,
-        month=record.month,
-        created_at=record.created_at
-    )
+    return _to_payroll_out(record, emp)

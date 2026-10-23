@@ -4,7 +4,6 @@ import {
   Plus,
   Eye,
   Calendar,
-  ShieldCheck,
   X
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -14,6 +13,7 @@ import { formatINR } from '../utils/format';
 export default function PayrollView({ user }) {
   const [payrolls, setPayrolls] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState('');
 
@@ -22,20 +22,23 @@ export default function PayrollView({ user }) {
   const [activePayslip, setActivePayslip] = useState(null);
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
 
-  // Generate form
+  // Generate form with complete breakdown
   const [genData, setGenData] = useState({
     employee_id: '',
     month: new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-    basic_salary: 85000,
+    basic_salary: 67500,
+    hra: 40500,
+    special_allowance: 27000,
     bonus: 5000,
-    deductions: 8700,
+    pf_deduction: 8100,
+    tax_deduction: 8300,
   });
   const [submitting, setSubmitting] = useState(false);
 
   const canGenerate = user?.role === 'ADMIN' || user?.role === 'HR';
 
   useEffect(() => {
-    fetchPayroll();
+    fetchPayrollData();
     if (canGenerate) {
       loadEmployees();
     }
@@ -46,26 +49,43 @@ export default function PayrollView({ user }) {
       const data = await api.getEmployees();
       setEmployees(data);
       if (data.length > 0 && !genData.employee_id) {
-        const firstSalary = data[0].salary || 85000;
-        setGenData((prev) => ({
-          ...prev,
-          employee_id: data[0].id,
-          basic_salary: firstSalary,
-          deductions: Math.round(firstSalary * 0.10 + 200),
-        }));
+        autoFillBreakdown(data[0]);
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const fetchPayroll = async () => {
+  const autoFillBreakdown = (emp) => {
+    const ctc = emp.salary || 100000;
+    const basic = Math.round(ctc * 0.50);
+    const hra = Math.round(ctc * 0.30);
+    const special = Math.round(ctc * 0.20);
+    const bonus = emp.department === 'Engineering' ? 5000 : 2500;
+    const pf = Math.round(basic * 0.12);
+    const tax = Math.round(ctc * 0.06 + 200);
+
+    setGenData({
+      employee_id: emp.id,
+      month: new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+      basic_salary: basic,
+      hra: hra,
+      special_allowance: special,
+      bonus: bonus,
+      pf_deduction: pf,
+      tax_deduction: tax,
+    });
+  };
+
+  const fetchPayrollData = async () => {
     try {
       setLoading(true);
-      const data = await api.getPayrollList({
-        month: selectedMonth || undefined,
-      });
-      setPayrolls(data);
+      const [listData, summaryData] = await Promise.all([
+        api.getPayrollList({ month: selectedMonth || undefined }),
+        canGenerate ? api.getPayrollSummary(selectedMonth || undefined).catch(() => null) : null,
+      ]);
+      setPayrolls(listData);
+      setSummary(summaryData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -76,14 +96,21 @@ export default function PayrollView({ user }) {
   const handleEmployeeSelect = (empId) => {
     const emp = employees.find((e) => e.id === parseInt(empId));
     if (emp) {
-      setGenData({
-        ...genData,
-        employee_id: emp.id,
-        basic_salary: emp.salary,
-        deductions: Math.round(emp.salary * 0.10 + 200),
-      });
+      autoFillBreakdown(emp);
     }
   };
+
+  // Live Calculations for Modal
+  const calculatedGross =
+    parseFloat(genData.basic_salary || 0) +
+    parseFloat(genData.hra || 0) +
+    parseFloat(genData.special_allowance || 0) +
+    parseFloat(genData.bonus || 0);
+
+  const calculatedDeductions =
+    parseFloat(genData.pf_deduction || 0) + parseFloat(genData.tax_deduction || 0);
+
+  const calculatedNet = Math.round((calculatedGross - calculatedDeductions) * 100) / 100;
 
   const handleGenerateSubmit = async (e) => {
     e.preventDefault();
@@ -93,272 +120,382 @@ export default function PayrollView({ user }) {
         employee_id: parseInt(genData.employee_id),
         month: genData.month,
         basic_salary: parseFloat(genData.basic_salary),
+        hra: parseFloat(genData.hra),
+        special_allowance: parseFloat(genData.special_allowance),
         bonus: parseFloat(genData.bonus),
-        deductions: parseFloat(genData.deductions),
+        pf_deduction: parseFloat(genData.pf_deduction),
+        tax_deduction: parseFloat(genData.tax_deduction),
+        deductions: calculatedDeductions,
       });
       setIsGenerateModalOpen(false);
-      fetchPayroll();
+      fetchPayrollData();
     } catch (err) {
-      alert(`Payroll generation failed: ${err.message}`);
+      alert(`Could not process payroll: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleOpenPayslip = (item) => {
-    setActivePayslip(item);
+  const handleViewPayslip = (p) => {
+    setActivePayslip(p);
     setIsPayslipModalOpen(true);
   };
 
-  // Metrics
-  const totalNet = payrolls.reduce((acc, curr) => acc + curr.net_salary, 0);
-  const totalBonus = payrolls.reduce((acc, curr) => acc + curr.bonus, 0);
-  const totalDeductions = payrolls.reduce((acc, curr) => acc + curr.deductions, 0);
-
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      {/* View Header */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '14px',
+        }}
+      >
         <div>
-          <h1 style={{ fontSize: '1.6rem', margin: '0 0 4px 0' }}>Payroll Processing & Salary Slips</h1>
-          <p style={{ margin: 0, fontSize: '0.875rem' }}>Monthly CTC disbursement, EPF & PT deductions, and digital Form 16 / Payslip generation.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="badge badge-purple">Module 12</span>
+            <span className="badge badge-indigo">Salary Breakdown & Payslips</span>
+          </div>
+          <h1 style={{ fontSize: '1.6rem', margin: '4px 0 0 0' }}>Payroll & Compensation</h1>
+          <p style={{ margin: 0, fontSize: '0.875rem' }}>
+            Detailed compensation breakdown (Basic, HRA, Special Allowance, PF, Tax), monthly summaries, and payslips.
+          </p>
         </div>
+
         {canGenerate && (
-          <button className="btn btn-primary" onClick={() => setIsGenerateModalOpen(true)}>
-            <Plus size={16} /> Process Salary Run
+          <button
+            id="btn-open-generate-payroll"
+            className="btn btn-primary"
+            onClick={() => setIsGenerateModalOpen(true)}
+          >
+            <Plus size={16} /> Process Monthly Payroll
           </button>
         )}
       </div>
 
-      {/* KPI Cards in INR */}
-      <div className="kpi-grid">
-        <div className="kpi-card">
-          <div>
-            <span style={{ fontSize: '0.785rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
-              Total Net Disbursed
+      {/* Monthly Summary KPI Banner (Module 12) */}
+      {summary && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '14px',
+            marginBottom: '20px',
+          }}
+        >
+          <div className="glass-panel" style={{ padding: '16px' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+              Cycle Disbursed
             </span>
-            <h2 style={{ fontSize: '1.8rem', margin: '4px 0 2px 0', color: 'var(--success)' }}>
-              {formatINR(totalNet)}
-            </h2>
-            <span style={{ fontSize: '0.785rem', color: 'var(--text-dim)' }}>{payrolls.length} salary records processed</span>
+            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--success)', marginTop: '2px' }}>
+              {formatINR(summary.total_net_disbursed)}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Total Net Payout ({summary.total_employees} staff)
+            </div>
           </div>
-          <div className="kpi-icon-box" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>
-            <span style={{ fontSize: '1.3rem', fontWeight: 700 }}>₹</span>
+
+          <div className="glass-panel" style={{ padding: '16px' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+              Gross Earnings (A)
+            </span>
+            <div style={{ fontSize: '1.55rem', fontWeight: 800, marginTop: '2px' }}>
+              {formatINR(summary.total_gross_disbursed)}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Basic ({formatINR(summary.total_basic)}) + Allowances
+            </div>
+          </div>
+
+          <div className="glass-panel" style={{ padding: '16px' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+              Statutory Deductions (B)
+            </span>
+            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--danger)', marginTop: '2px' }}>
+              {formatINR(summary.total_deductions)}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              EPF + Professional Tax + TDS
+            </div>
+          </div>
+
+          <div className="glass-panel" style={{ padding: '16px' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+              Allowances Total
+            </span>
+            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--primary)', marginTop: '2px' }}>
+              {formatINR(summary.total_allowances)}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              HRA, Special & Performance Bonus
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="kpi-card">
-          <div>
-            <span style={{ fontSize: '0.785rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
-              Incentives & Diwali Bonus
-            </span>
-            <h2 style={{ fontSize: '1.8rem', margin: '4px 0 2px 0', color: 'var(--primary)' }}>
-              +{formatINR(totalBonus)}
-            </h2>
-            <span style={{ fontSize: '0.785rem', color: 'var(--text-dim)' }}>Performance bonuses credited</span>
-          </div>
-          <div className="kpi-icon-box" style={{ background: '#eef2ff', color: '#4338ca' }}>
-            <CreditCard size={20} />
-          </div>
+      {/* Filter Bar */}
+      <div
+        className="glass-panel"
+        style={{
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Calendar size={16} style={{ color: 'var(--text-dim)' }} />
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Filter Month:</span>
+          <select
+            id="select-payroll-month-filter"
+            className="input"
+            style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+          >
+            <option value="">All Payroll Cycles</option>
+            <option value="October 2026">October 2026</option>
+            <option value="September 2026">September 2026</option>
+          </select>
         </div>
 
-        <div className="kpi-card">
-          <div>
-            <span style={{ fontSize: '0.785rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
-              Statutory Deductions (EPF / PT / TDS)
-            </span>
-            <h2 style={{ fontSize: '1.8rem', margin: '4px 0 2px 0', color: 'var(--danger)' }}>
-              -{formatINR(totalDeductions)}
-            </h2>
-            <span style={{ fontSize: '0.785rem', color: 'var(--text-dim)' }}>Government statutory withholdings</span>
-          </div>
-          <div className="kpi-icon-box" style={{ background: 'var(--danger-bg)', color: 'var(--danger)' }}>
-            <ShieldCheck size={20} />
-          </div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+          Showing <strong>{payrolls.length}</strong> payroll records
         </div>
       </div>
 
       {/* Payroll Table */}
-      <div className="glass-panel" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-          <h3 style={{ fontSize: '1.15rem', margin: 0 }}>Salary Statements (INR)</h3>
-
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <Calendar size={15} color="var(--text-dim)" />
-            <input
-              type="text"
-              className="form-input"
-              style={{ width: 'auto', minWidth: '170px', padding: '5px 10px', fontSize: '0.825rem' }}
-              placeholder="Filter by Month (e.g. October 2026)"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="table-container" style={{ border: 'none' }}>
-          <table className="data-table">
-            <thead>
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Month</th>
+              <th>Basic Pay</th>
+              <th>Allowances (HRA+Spl)</th>
+              <th>Bonus</th>
+              <th>Deductions (PF+Tax)</th>
+              <th>Net Salary</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
               <tr>
-                <th>Employee Name</th>
-                <th>Month</th>
-                <th>Basic Pay</th>
-                <th>Incentives / Bonus</th>
-                <th>Deductions (PF+PT)</th>
-                <th>Net In-Hand Pay</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                  Loading payroll records...
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                    Loading salary statements...
-                  </td>
-                </tr>
-              ) : payrolls.length === 0 ? (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                    No payroll entries found for this month.
-                  </td>
-                </tr>
-              ) : (
-                payrolls.map((p) => (
+            ) : payrolls.length === 0 ? (
+              <tr>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                  No payroll records found.
+                </td>
+              </tr>
+            ) : (
+              payrolls.map((p) => {
+                const totalAllowances = (p.hra || 0) + (p.special_allowance || 0);
+                return (
                   <tr key={p.id}>
-                    <td>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{p.employee_name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                          {p.designation} • {p.department}
-                        </div>
-                      </div>
-                    </td>
+                    <td style={{ fontWeight: 600 }}>{p.employee_name || 'Staff Member'}</td>
+                    <td style={{ color: 'var(--text-dim)' }}>{p.department || 'General'}</td>
                     <td>
                       <span className="badge badge-purple">{p.month}</span>
                     </td>
-                    <td style={{ fontWeight: 500 }}>
-                      {formatINR(p.basic_salary)}
-                    </td>
-                    <td style={{ color: 'var(--success)', fontWeight: 600 }}>
-                      +{formatINR(p.bonus)}
-                    </td>
-                    <td style={{ color: 'var(--danger)', fontWeight: 600 }}>
-                      -{formatINR(p.deductions)}
-                    </td>
+                    <td>{formatINR(p.basic_salary)}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>{formatINR(totalAllowances)}</td>
                     <td>
-                      <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                        {formatINR(p.net_salary)}
-                      </strong>
+                      {p.bonus > 0 ? (
+                        <span style={{ color: 'var(--success)', fontWeight: 600 }}>+{formatINR(p.bonus)}</span>
+                      ) : (
+                        <span style={{ color: 'var(--text-dim)' }}>₹0</span>
+                      )}
+                    </td>
+                    <td style={{ color: 'var(--danger)' }}>-{formatINR(p.deductions)}</td>
+                    <td>
+                      <strong style={{ color: 'var(--success)', fontSize: '0.95rem' }}>{formatINR(p.net_salary)}</strong>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button
+                        id={`btn-view-payslip-${p.id}`}
                         className="btn btn-secondary btn-sm"
-                        onClick={() => handleOpenPayslip(p)}
-                        style={{ padding: '5px 10px', fontSize: '0.75rem' }}
+                        onClick={() => handleViewPayslip(p)}
+                        title="View Detailed Payslip"
                       >
-                        <Eye size={13} /> View Payslip
+                        <Eye size={14} /> Payslip
                       </button>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* GENERATE MODAL */}
+      {/* Generate Payroll Modal with Live Breakdown */}
       {isGenerateModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsGenerateModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-              <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Process Monthly Salary Run</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setIsGenerateModalOpen(false)}>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CreditCard size={18} style={{ color: 'var(--primary)' }} />
+                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Generate Monthly Compensation Run</h3>
+              </div>
+              <button className="btn btn-ghost" onClick={() => setIsGenerateModalOpen(false)}>
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleGenerateSubmit}>
-              <div className="form-group">
-                <label className="form-label">Employee</label>
-                <select
-                  className="form-select"
-                  value={genData.employee_id}
-                  onChange={(e) => handleEmployeeSelect(e.target.value)}
-                >
-                  {employees.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.full_name} ({e.designation} - {e.department})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Payroll Month</label>
-                <input
-                  type="text"
-                  required
-                  className="form-input"
-                  placeholder="e.g. October 2026"
-                  value={genData.month}
-                  onChange={(e) => setGenData({ ...genData, month: e.target.value })}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group">
-                  <label className="form-label">Basic Pay (₹) *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label className="label">Employee</label>
+                  <select
+                    id="select-generate-emp"
+                    className="input"
+                    value={genData.employee_id}
+                    onChange={(e) => handleEmployeeSelect(e.target.value)}
+                  >
+                    {employees.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.full_name} ({e.designation})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Payroll Month</label>
                   <input
-                    type="number"
+                    id="input-generate-month"
+                    type="text"
                     required
-                    min="10000"
-                    step="1000"
-                    className="form-input"
-                    value={genData.basic_salary}
-                    onChange={(e) => setGenData({ ...genData, basic_salary: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Performance Bonus / Incentives (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="500"
-                    className="form-input"
-                    value={genData.bonus}
-                    onChange={(e) => setGenData({ ...genData, bonus: parseFloat(e.target.value) || 0 })}
+                    className="input"
+                    value={genData.month}
+                    onChange={(e) => setGenData({ ...genData, month: e.target.value })}
                   />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Deductions (PF + PT ₹200 + TDS) (₹)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="100"
-                  className="form-input"
-                  value={genData.deductions}
-                  onChange={(e) => setGenData({ ...genData, deductions: parseFloat(e.target.value) || 0 })}
-                />
+              {/* Salary Breakdown Inputs */}
+              <div style={{ background: '#f8fafc', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: 'var(--primary)', textTransform: 'uppercase' }}>
+                  Salary Earnings & Allowances (₹)
+                </h4>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>Basic Salary</label>
+                    <input
+                      id="input-basic-salary"
+                      type="number"
+                      required
+                      className="input"
+                      value={genData.basic_salary}
+                      onChange={(e) => setGenData({ ...genData, basic_salary: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>House Rent Allowance (HRA)</label>
+                    <input
+                      id="input-hra-salary"
+                      type="number"
+                      className="input"
+                      value={genData.hra}
+                      onChange={(e) => setGenData({ ...genData, hra: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>Special Allowance</label>
+                    <input
+                      id="input-special-allowance"
+                      type="number"
+                      className="input"
+                      value={genData.special_allowance}
+                      onChange={(e) => setGenData({ ...genData, special_allowance: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>Performance Bonus</label>
+                    <input
+                      id="input-bonus"
+                      type="number"
+                      className="input"
+                      value={genData.bonus}
+                      onChange={(e) => setGenData({ ...genData, bonus: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Net In-Hand preview */}
-              <div style={{ background: 'var(--bg-input)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Estimated In-Hand Salary:</span>
-                <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--success)' }}>
-                  {formatINR(genData.basic_salary + genData.bonus - genData.deductions)}
-                </span>
+              {/* Deductions Inputs */}
+              <div style={{ background: '#fef2f2', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid #fecaca', marginBottom: '14px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: 'var(--danger)', textTransform: 'uppercase' }}>
+                  Statutory Deductions (₹)
+                </h4>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>Provident Fund (EPF 12%)</label>
+                    <input
+                      id="input-pf-deduction"
+                      type="number"
+                      className="input"
+                      value={genData.pf_deduction}
+                      onChange={(e) => setGenData({ ...genData, pf_deduction: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>Income Tax (TDS) + PT</label>
+                    <input
+                      id="input-tax-deduction"
+                      type="number"
+                      className="input"
+                      value={genData.tax_deduction}
+                      onChange={(e) => setGenData({ ...genData, tax_deduction: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Preview Box */}
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', padding: '12px 16px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 600, textTransform: 'uppercase' }}>Calculated Net Take-Home</span>
+                  <div style={{ fontSize: '0.75rem', color: '#15803d' }}>
+                    Gross: {formatINR(calculatedGross)} • Deductions: {formatINR(calculatedDeductions)}
+                  </div>
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#15803d' }}>
+                  {formatINR(calculatedNet)}
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setIsGenerateModalOpen(false)}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsGenerateModalOpen(false)}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Processing...' : 'Confirm & Generate Payslip'}
+                <button
+                  id="btn-submit-generate-payroll"
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Processing...' : 'Disburse & Generate Payslip'}
                 </button>
               </div>
             </form>
@@ -367,11 +504,13 @@ export default function PayrollView({ user }) {
       )}
 
       {/* Payslip Modal */}
-      <PayslipModal
-        isOpen={isPayslipModalOpen}
-        onClose={() => setIsPayslipModalOpen(false)}
-        payrollItem={activePayslip}
-      />
+      {isPayslipModalOpen && activePayslip && (
+        <PayslipModal
+          isOpen={isPayslipModalOpen}
+          onClose={() => setIsPayslipModalOpen(false)}
+          payrollItem={activePayslip}
+        />
+      )}
     </div>
   );
 }

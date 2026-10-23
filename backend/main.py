@@ -12,16 +12,17 @@ from routers import (
     leaves,
     payroll,
     dashboard,
-    notifications
+    notifications,
+    admin
 )
 
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="WorkSphere – HR Management System API",
-    description="Enterprise HRMS API supporting Employees, Attendance, Leaves, Payroll, Roles & Notifications",
-    version="1.0.0"
+    title="WorkSphere – Enterprise HRMS API",
+    description="Enterprise Role-Based Access Control HRMS with Employee Self-Service, Attendance Controls, Leave Policies, and Payroll",
+    version="2.0.0"
 )
 
 # Configure CORS for local development and frontend client
@@ -41,21 +42,23 @@ app.include_router(leaves.router)
 app.include_router(payroll.router)
 app.include_router(dashboard.router)
 app.include_router(notifications.router)
+app.include_router(admin.router)
 
 @app.on_event("startup")
 def startup_event():
-    # Automatically seed default users & records if empty
+    # Automatically seed default users, policies & records
     seed()
 
 @app.get("/")
 def root():
     return {
         "system": "WorkSphere HRMS",
+        "phase": "Phase 2 – RBAC & Advanced HR Workflows",
         "status": "online",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "docs_url": "/docs"
     }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

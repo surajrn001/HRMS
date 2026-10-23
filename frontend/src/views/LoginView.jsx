@@ -262,6 +262,7 @@ export default function LoginView({ onLoginSuccess }) {
             )}
 
             <button
+              id="btn-login-submit"
               type="submit"
               className="btn btn-primary"
               style={{ width: '100%', padding: '10px', marginTop: '6px' }}
@@ -271,6 +272,68 @@ export default function LoginView({ onLoginSuccess }) {
               <ArrowRight size={15} />
             </button>
           </form>
+
+          {/* Quick Role Fill Pills for Phase 2 Testing */}
+          {!isRegister && (
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+              <span style={{ fontSize: '0.725rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+                Quick Test Logins (Phase 2 RBAC):
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', justifyContent: 'flex-start', padding: '6px 8px' }}
+                  onClick={() => {
+                    setUsername('admin');
+                    setPassword('admin123');
+                  }}
+                >
+                  <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>ADMIN</span>
+                  <span>Rajesh (Admin)</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', justifyContent: 'flex-start', padding: '6px 8px' }}
+                  onClick={() => {
+                    setUsername('neha_hr');
+                    setPassword('hr123');
+                  }}
+                >
+                  <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>HR</span>
+                  <span>Neha (Manager)</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', justifyContent: 'flex-start', padding: '6px 8px' }}
+                  onClick={() => {
+                    setUsername('suraj');
+                    setPassword('emp123');
+                  }}
+                >
+                  <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>EMP</span>
+                  <span>Suraj (Engineer)</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', justifyContent: 'flex-start', padding: '6px 8px' }}
+                  onClick={() => {
+                    setUsername('kunal_contractor');
+                    setPassword('emp123');
+                  }}
+                >
+                  <span className="badge badge-danger" style={{ fontSize: '0.65rem' }}>INACTIVE</span>
+                  <span>Kunal (Deactive)</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

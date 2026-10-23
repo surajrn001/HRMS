@@ -36,6 +36,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.EMPLOYEE, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     employee = relationship("Employee", back_populates="user", uselist=False, cascade="all, delete-orphan")
@@ -57,6 +58,7 @@ class Employee(Base):
     attendances = relationship("Attendance", back_populates="employee", cascade="all, delete-orphan")
     leaves = relationship("Leave", back_populates="employee", cascade="all, delete-orphan")
     payrolls = relationship("Payroll", back_populates="employee", cascade="all, delete-orphan")
+    leave_balances = relationship("LeaveBalance", back_populates="employee", cascade="all, delete-orphan")
 
 class Attendance(Base):
     __tablename__ = "attendance"
@@ -68,6 +70,9 @@ class Attendance(Base):
     check_out = Column(DateTime, nullable=True)
     working_hours = Column(Float, default=0.0)
     status = Column(Enum(AttendanceStatus), default=AttendanceStatus.PRESENT, nullable=False)
+    is_late = Column(Boolean, default=False, nullable=False)
+    late_minutes = Column(Integer, default=0, nullable=False)
+    overtime_hours = Column(Float, default=0.0, nullable=False)
 
     employee = relationship("Employee", back_populates="attendances")
 
@@ -85,16 +90,40 @@ class Leave(Base):
 
     employee = relationship("Employee", back_populates="leaves")
 
+class LeavePolicy(Base):
+    __tablename__ = "leave_policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    leave_type = Column(Enum(LeaveType), unique=True, nullable=False)
+    total_days_allowed = Column(Float, nullable=False, default=12.0)
+    description = Column(String(255), nullable=True)
+
+class LeaveBalance(Base):
+    __tablename__ = "leave_balances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    leave_type = Column(Enum(LeaveType), nullable=False)
+    total_days = Column(Float, nullable=False, default=12.0)
+    used_days = Column(Float, nullable=False, default=0.0)
+    remaining_days = Column(Float, nullable=False, default=12.0)
+
+    employee = relationship("Employee", back_populates="leave_balances")
+
 class Payroll(Base):
     __tablename__ = "payroll"
 
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
     basic_salary = Column(Float, nullable=False, default=0.0)
-    deductions = Column(Float, nullable=False, default=0.0)
+    hra = Column(Float, nullable=False, default=0.0)
+    special_allowance = Column(Float, nullable=False, default=0.0)
     bonus = Column(Float, nullable=False, default=0.0)
+    pf_deduction = Column(Float, nullable=False, default=0.0)
+    tax_deduction = Column(Float, nullable=False, default=0.0)
+    deductions = Column(Float, nullable=False, default=0.0)
     net_salary = Column(Float, nullable=False, default=0.0)
-    month = Column(String(20), nullable=False)  # e.g. "October 2026" or "2026-10"
+    month = Column(String(20), nullable=False)  # e.g. "October 2026"
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     employee = relationship("Employee", back_populates="payrolls")

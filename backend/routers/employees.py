@@ -126,6 +126,10 @@ def create_employee(
     db.commit()
     db.refresh(new_emp)
 
+    # Initialize leave balances for the new employee
+    from routers.leaves import ensure_employee_balances
+    ensure_employee_balances(new_emp.id, db)
+
     # Notification for newly added employee
     notif = Notification(
         user_id=target_user.id,

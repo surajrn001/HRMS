@@ -11,16 +11,29 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=4)
+    employee_id: Optional[int] = None
 
 class UserLogin(BaseModel):
     username: str
     password: str
 
+class UserRoleUpdate(BaseModel):
+    role: UserRole
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
+
+class UserPasswordReset(BaseModel):
+    new_password: str = Field(..., min_length=4)
+
 class UserOut(UserBase):
     id: int
+    is_active: bool = True
     created_at: datetime
     employee_id: Optional[int] = None
     full_name: Optional[str] = None
+    department: Optional[str] = None
+    designation: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -33,6 +46,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
     role: Optional[str] = None
+    user_id: Optional[int] = None
 
 
 # --- Employees ---
@@ -70,7 +84,7 @@ class EmployeeOut(EmployeeBase):
 
 # --- Attendance ---
 class AttendanceCheckIn(BaseModel):
-    employee_id: Optional[int] = None  # if employee, auto-assigned from token
+    employee_id: Optional[int] = None
 
 class AttendanceCheckOut(BaseModel):
     employee_id: Optional[int] = None
@@ -81,6 +95,9 @@ class AttendanceManualCreate(BaseModel):
     check_in: Optional[datetime] = None
     check_out: Optional[datetime] = None
     status: AttendanceStatus = AttendanceStatus.PRESENT
+    is_late: Optional[bool] = False
+    late_minutes: Optional[int] = 0
+    overtime_hours: Optional[float] = 0.0
 
 class AttendanceOut(BaseModel):
     id: int
@@ -92,12 +109,15 @@ class AttendanceOut(BaseModel):
     check_out: Optional[datetime] = None
     working_hours: float
     status: AttendanceStatus
+    is_late: bool = False
+    late_minutes: int = 0
+    overtime_hours: float = 0.0
 
     class Config:
         from_attributes = True
 
 
-# --- Leaves ---
+# --- Leaves & Policies ---
 class LeaveCreate(BaseModel):
     employee_id: Optional[int] = None
     leave_type: LeaveType
@@ -116,9 +136,36 @@ class LeaveOut(BaseModel):
     leave_type: LeaveType
     start_date: date
     end_date: date
+    days_count: Optional[float] = None
     reason: str
     status: LeaveStatus
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class LeavePolicyBase(BaseModel):
+    leave_type: LeaveType
+    total_days_allowed: float
+    description: Optional[str] = None
+
+class LeavePolicyCreate(LeavePolicyBase):
+    pass
+
+class LeavePolicyOut(LeavePolicyBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class LeaveBalanceOut(BaseModel):
+    id: int
+    employee_id: int
+    employee_name: Optional[str] = None
+    leave_type: LeaveType
+    total_days: float
+    used_days: float
+    remaining_days: float
 
     class Config:
         from_attributes = True
@@ -129,8 +176,12 @@ class PayrollCreate(BaseModel):
     employee_id: int
     month: str  # e.g., "October 2026"
     basic_salary: float
-    deductions: float = 0.0
-    bonus: float = 0.0
+    hra: Optional[float] = 0.0
+    special_allowance: Optional[float] = 0.0
+    bonus: Optional[float] = 0.0
+    pf_deduction: Optional[float] = 0.0
+    tax_deduction: Optional[float] = 0.0
+    deductions: Optional[float] = 0.0
 
 class PayrollOut(BaseModel):
     id: int
@@ -139,14 +190,27 @@ class PayrollOut(BaseModel):
     department: Optional[str] = None
     designation: Optional[str] = None
     basic_salary: float
-    deductions: float
-    bonus: float
+    hra: float = 0.0
+    special_allowance: float = 0.0
+    bonus: float = 0.0
+    pf_deduction: float = 0.0
+    tax_deduction: float = 0.0
+    deductions: float = 0.0
     net_salary: float
     month: str
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+class PayrollSummaryOut(BaseModel):
+    month: str
+    total_employees: int
+    total_gross_disbursed: float
+    total_basic: float
+    total_allowances: float
+    total_deductions: float
+    total_net_disbursed: float
 
 
 # --- Notifications ---
@@ -165,36 +229,3 @@ class NotificationOut(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-# --- Dashboard Analytics ---
-class DepartmentStat(BaseModel):
-    department: str
-    count: int
-
-class AttendanceSummary(BaseModel):
-    present_today: int
-    absent_today: int
-    half_day_today: int
-    total_today: int
-
-class LeaveStats(BaseModel):
-    pending: int
-    approved: int
-    rejected: int
-
-class PayrollOverview(BaseModel):
-    total_monthly_payroll: float
-    total_bonuses: float
-    total_deductions: float
-    records_count: int
-
-class DashboardData(BaseModel):
-    total_employees: int
-    active_employees: int
-    attendance_summary: AttendanceSummary
-    leave_stats: LeaveStats
-    payroll_overview: PayrollOverview
-    department_distribution: List[DepartmentStat]
-    recent_attendances: List[AttendanceOut]
-    recent_leaves: List[LeaveOut]

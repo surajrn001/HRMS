@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Printer, Building2, CheckCircle2 } from 'lucide-react';
-import { formatINR, formatINRWithDecimals, formatDateIndian } from '../utils/format';
+import { formatINR, formatINRWithDecimals } from '../utils/format';
 
 export default function PayslipModal({ isOpen, onClose, payrollItem }) {
   if (!isOpen || !payrollItem) return null;
@@ -10,16 +10,16 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
   };
 
   const basic = payrollItem.basic_salary || 0;
-  // Realistic Indian salary structure breakdown
-  const hra = Math.round(basic * 0.4); // 40% HRA
-  const specialAllowance = Math.round(basic * 0.2); // Special Allowance
+  // Use exact DB breakdown if available, else standard Indian corporate formulation
+  const hra = payrollItem.hra || Math.round(basic * 0.4);
+  const specialAllowance = payrollItem.special_allowance || Math.round(basic * 0.2);
   const bonus = payrollItem.bonus || 0;
-  const grossEarnings = basic + bonus;
+  const grossEarnings = basic + hra + specialAllowance + bonus;
 
-  const pfDeduction = Math.min(Math.round(basic * 0.08), 1800); // Standard PF
-  const ptDeduction = 200; // Karnataka/Maharashtra standard PT ₹200
-  const tdsDeduction = Math.max(0, Math.round(payrollItem.deductions - pfDeduction - ptDeduction));
-  const totalDeductions = payrollItem.deductions || (pfDeduction + ptDeduction + tdsDeduction);
+  const pfDeduction = payrollItem.pf_deduction || Math.min(Math.round(basic * 0.12), 1800);
+  const ptDeduction = 200; // Karnataka / Maharashtra PT standard
+  const taxDeduction = payrollItem.tax_deduction || Math.max(0, Math.round(payrollItem.deductions - pfDeduction - ptDeduction));
+  const totalDeductions = payrollItem.deductions || (pfDeduction + ptDeduction + taxDeduction);
 
   const netPay = payrollItem.net_salary || (grossEarnings - totalDeductions);
 
@@ -27,14 +27,14 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-content"
-        style={{ maxWidth: '720px', padding: '0', background: '#ffffff', overflow: 'hidden' }}
+        style={{ maxWidth: '740px', padding: '0', background: '#ffffff', overflow: 'hidden' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Actions */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 24px', background: '#0f172a', color: '#fff' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={20} color="#818cf8" />
-            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Monthly Salary Slip (Form 16 / Payslip)</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Monthly Salary Slip (Corporate Payslip)</span>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn btn-secondary btn-sm" onClick={handlePrint} style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.2)' }}>
@@ -64,7 +64,7 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
                 PAYSLIP FOR {payrollItem.month?.toUpperCase()}
               </div>
               <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '4px 0 0 0' }}>
-                Pay Date: 30th {payrollItem.month}
+                Pay Cycle: Monthly (Last Working Day)
               </p>
             </div>
           </div>
@@ -74,14 +74,14 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
             <div>
               <p style={{ margin: '0 0 4px 0' }}><strong style={{ color: '#475569' }}>Employee Name:</strong> <span style={{ color: '#0f172a', fontWeight: 600 }}>{payrollItem.employee_name}</span></p>
               <p style={{ margin: '0 0 4px 0' }}><strong style={{ color: '#475569' }}>Employee ID:</strong> <span style={{ fontFamily: 'var(--font-mono)' }}>WS-IN-{String(payrollItem.employee_id).padStart(3, '0')}</span></p>
-              <p style={{ margin: '0 0 4px 0' }}><strong style={{ color: '#475569' }}>Department:</strong> {payrollItem.department}</p>
-              <p style={{ margin: '0' }}><strong style={{ color: '#475569' }}>Designation:</strong> {payrollItem.designation}</p>
+              <p style={{ margin: '0 0 4px 0' }}><strong style={{ color: '#475569' }}>Department:</strong> {payrollItem.department || 'Engineering'}</p>
+              <p style={{ margin: '0' }}><strong style={{ color: '#475569' }}>Designation:</strong> {payrollItem.designation || 'Specialist'}</p>
             </div>
             <div>
-              <p style={{ margin: '0 0 4px 0' }}><strong style={{ color: '#475569' }}>Bank Name:</strong> HDFC Bank Ltd. (Salary A/c)</p>
+              <p style={{ margin: '0 0 4px 0' }}><strong style={{ color: '#475569' }}>Bank Name:</strong> HDFC Bank Ltd. (Salary Account)</p>
               <p style={{ margin: '0 0 4px 0' }}><strong style={{ color: '#475569' }}>A/c No.:</strong> <span style={{ fontFamily: 'var(--font-mono)' }}>5010049281XXXX</span></p>
               <p style={{ margin: '0 0 4px 0' }}><strong style={{ color: '#475569' }}>PF UAN:</strong> <span style={{ fontFamily: 'var(--font-mono)' }}>101488920194</span></p>
-              <p style={{ margin: '0' }}><strong style={{ color: '#475569' }}>Working Days:</strong> 30 Days (Paid: 30)</p>
+              <p style={{ margin: '0' }}><strong style={{ color: '#475569' }}>Pay Status:</strong> Direct Electronic Deposit (NEFT/RTGS)</p>
             </div>
           </div>
 
@@ -90,7 +90,7 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
             {/* Earnings Column */}
             <div style={{ borderRight: '1px solid #cbd5e1' }}>
               <div style={{ background: '#f1f5f9', padding: '8px 14px', fontWeight: 700, color: '#334155', borderBottom: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between' }}>
-                <span>EARNINGS</span>
+                <span>EARNINGS BREAKDOWN</span>
                 <span>AMOUNT (₹)</span>
               </div>
               <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -108,7 +108,7 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
                 </div>
                 {bonus > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a' }}>
-                    <span>Performance Incentive / Bonus</span>
+                    <span>Performance Bonus</span>
                     <span style={{ fontWeight: 600 }}>+{formatINR(bonus)}</span>
                   </div>
                 )}
@@ -122,7 +122,7 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
             {/* Deductions Column */}
             <div>
               <div style={{ background: '#f1f5f9', padding: '8px 14px', fontWeight: 700, color: '#334155', borderBottom: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between' }}>
-                <span>DEDUCTIONS</span>
+                <span>DEDUCTIONS BREAKDOWN</span>
                 <span>AMOUNT (₹)</span>
               </div>
               <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -136,7 +136,7 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Income Tax (TDS)</span>
-                  <span style={{ color: '#dc2626' }}>{formatINR(tdsDeduction)}</span>
+                  <span style={{ color: '#dc2626' }}>{formatINR(taxDeduction)}</span>
                 </div>
                 <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '8px', marginTop: '30px', display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#dc2626' }}>
                   <span>Total Deductions (B)</span>
@@ -150,10 +150,10 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
           <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: '8px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
             <div>
               <p style={{ margin: 0, fontSize: '0.75rem', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>
-                Net In-Hand Salary (A - B)
+                Net Disbursed Take-Home Salary (A - B)
               </p>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <CheckCircle2 size={15} /> Credited via NEFT/RTGS to HDFC Bank A/c
+                <CheckCircle2 size={15} /> Credited to Employee Salary Account
               </p>
             </div>
             <div style={{ fontSize: '1.7rem', fontWeight: 800, color: '#15803d', fontFamily: 'var(--font-heading)' }}>
@@ -162,8 +162,8 @@ export default function PayslipModal({ isOpen, onClose, payrollItem }) {
           </div>
 
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '0.725rem', color: '#94a3b8' }}>
-            <span>This is a computer-generated payslip and does not require a physical signature.</span>
-            <span>Ref: WS-P-2026-{payrollItem.id}</span>
+            <span>This is an authenticated computer-generated payslip and does not require a physical signature.</span>
+            <span>Ref: WS-PAY-2026-{payrollItem.id}</span>
           </div>
         </div>
       </div>
