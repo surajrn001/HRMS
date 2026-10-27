@@ -63,6 +63,8 @@ WorkSphere HRMS (Phase 3 Enterprise Upgrade)
 
 | Feature & Module | Screenshot Preview |
 |---|---|
+| **Secure Authentication & Role Portals** | ![Login Portal](Screenshots/clean_login.png) |
+| **Employee Self-Service (ESS) & Executive KPIs** | ![Dashboard Overview](Screenshots/clean_employee_dashboard.png) |
 | **Module 14: Shift Schedules & Timing** | ![Shift Schedule](Screenshots/phase3_shifts_schedule.png) |
 | **Module 14: Shift Rosters & Assignment** | ![Shift Rosters Modal](Screenshots/phase3_shift_rosters_modal.png) |
 | **Module 15: Team Leave Calendar** | ![Team Leave Calendar](Screenshots/phase3_team_leave_calendar.png) |
