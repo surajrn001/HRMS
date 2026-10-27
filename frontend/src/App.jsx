@@ -10,7 +10,10 @@ import {
   Sun,
   Moon,
   LogOut,
-  Building2
+  Building2,
+  FileText,
+  Star,
+  BarChart3
 } from 'lucide-react';
 import './App.css';
 import { api } from './services/api';
@@ -21,6 +24,9 @@ import AttendanceView from './views/AttendanceView';
 import LeavesView from './views/LeavesView';
 import PayrollView from './views/PayrollView';
 import AdminControlsView from './views/AdminControlsView';
+import DocumentsView from './views/DocumentsView';
+import PerformanceView from './views/PerformanceView';
+import AnalyticsView from './views/AnalyticsView';
 import NotificationsModal from './components/NotificationsModal';
 
 export default function App() {
@@ -85,6 +91,24 @@ export default function App() {
     }
   };
 
+  const handleDeleteNotification = async (id) => {
+    try {
+      await api.deleteNotification(id);
+      loadNotifications();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      await api.clearAllNotifications();
+      loadNotifications();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // RBAC Navigation guards
   useEffect(() => {
     if (!currentUser) return;
@@ -119,8 +143,11 @@ export default function App() {
       icon: LayoutDashboard,
     },
     ...(canManageEmployees ? [{ id: 'employees', label: 'Employee Directory', icon: Users }] : []),
-    { id: 'attendance', label: 'Attendance & Punches', icon: Clock },
-    { id: 'leaves', label: 'Leaves & Balances', icon: CalendarDays },
+    { id: 'attendance', label: 'Attendance & Shifts', icon: Clock },
+    { id: 'leaves', label: 'Leaves & Calendar', icon: CalendarDays },
+    { id: 'documents', label: 'Document Vault', icon: FileText },
+    { id: 'performance', label: 'Performance Reviews', icon: Star },
+    ...(canManageEmployees ? [{ id: 'analytics', label: 'Workforce Analytics', icon: BarChart3 }] : []),
     { id: 'payroll', label: 'Payroll & Payslips', icon: CreditCard },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin Controls', icon: ShieldCheck }] : []),
   ];
@@ -301,6 +328,9 @@ export default function App() {
           {activeTab === 'employees' && canManageEmployees && <EmployeesView user={currentUser} />}
           {activeTab === 'attendance' && <AttendanceView user={currentUser} />}
           {activeTab === 'leaves' && <LeavesView user={currentUser} />}
+          {activeTab === 'documents' && <DocumentsView user={currentUser} />}
+          {activeTab === 'performance' && <PerformanceView user={currentUser} />}
+          {activeTab === 'analytics' && canManageEmployees && <AnalyticsView user={currentUser} />}
           {activeTab === 'payroll' && <PayrollView user={currentUser} />}
           {activeTab === 'admin' && isAdmin && <AdminControlsView currentUser={currentUser} />}
         </main>
@@ -313,6 +343,8 @@ export default function App() {
         notifications={notifications}
         onMarkAsRead={handleMarkAsRead}
         onMarkAllAsRead={handleMarkAllAsRead}
+        onDeleteNotification={handleDeleteNotification}
+        onClearAllNotifications={handleClearAllNotifications}
       />
     </div>
   );

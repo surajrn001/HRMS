@@ -46,6 +46,14 @@ export default function AttendanceView({ user }) {
     late_minutes: 0,
   });
 
+  // Module 14: Shift Management State
+  const [myShift, setMyShift] = useState(null);
+  const [shifts, setShifts] = useState([]);
+  const [shiftAssignments, setShiftAssignments] = useState([]);
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [assignData, setAssignData] = useState({ employee_id: '', shift_id: '' });
+  const [assigningShift, setAssigningShift] = useState(false);
+
   const canManage = user?.role === 'ADMIN' || user?.role === 'HR';
 
   useEffect(() => {
@@ -75,20 +83,53 @@ export default function AttendanceView({ user }) {
   const fetchAttendanceData = async () => {
     try {
       setLoading(true);
-      const [today, hist] = await Promise.all([
+      const [today, hist, shiftInfo] = await Promise.all([
         api.getTodayAttendance().catch(() => null),
         api.getAttendanceHistory({
           start_date: startDate || undefined,
           end_date: endDate || undefined,
           only_late: onlyLate || undefined,
         }),
+        api.getMyShift().catch(() => null),
       ]);
       setTodayRecord(today);
       setHistory(hist);
+      setMyShift(shiftInfo);
+
+      if (canManage) {
+        const [allShifts, allAssigns] = await Promise.all([
+          api.getShifts().catch(() => []),
+          api.getShiftAssignments().catch(() => []),
+        ]);
+        setShifts(allShifts || []);
+        setShiftAssignments(allAssigns || []);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssignShiftSubmit = async (e) => {
+    e.preventDefault();
+    if (!assignData.employee_id || !assignData.shift_id) {
+      showAlert('Please select both employee and target shift', 'warning');
+      return;
+    }
+    try {
+      setAssigningShift(true);
+      await api.assignShift({
+        employee_id: parseInt(assignData.employee_id),
+        shift_id: parseInt(assignData.shift_id),
+      });
+      showAlert('Shift schedule assigned successfully and employee notified', 'success');
+      const allAssigns = await api.getShiftAssignments();
+      setShiftAssignments(allAssigns || []);
+    } catch (err) {
+      showAlert(err.message || 'Failed to assign shift', 'danger');
+    } finally {
+      setAssigningShift(false);
     }
   };
 
@@ -201,6 +242,13 @@ export default function AttendanceView({ user }) {
         {canManage && (
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
+              id="btn-open-shift-management"
+              className="btn btn-secondary"
+              onClick={() => setIsShiftModalOpen(true)}
+            >
+              <Calendar size={16} /> Shift Rosters
+            </button>
+            <button
               id="btn-open-auto-mark-absent"
               className="btn btn-secondary"
               onClick={() => setIsAutoMarkModalOpen(true)}
@@ -300,7 +348,7 @@ export default function AttendanceView({ user }) {
 
           <div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Standard Shift: 09:30 AM – 06:30 PM IST (8.0 Hours)
+              Assigned Shift: <strong style={{ color: 'var(--primary)' }}>{myShift?.shift_name || 'General Shift'}</strong> ({myShift?.start_time || '09:30'} – {myShift?.end_time || '18:30'} IST)
             </div>
             <div style={{ fontSize: '1.9rem', fontWeight: 800, fontFamily: 'var(--font-mono)', margin: '2px 0' }}>
               {currentTime.toLocaleTimeString('en-IN')}
@@ -684,6 +732,123 @@ export default function AttendanceView({ user }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Module 14: Shift Rosters & Assignments Modal */}
+      {isShiftModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-panel" style={{ maxWidth: '720px', width: '92%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <span className="badge badge-purple">Module 14</span>
+                <h2 style={{ margin: '4px 0 0 0', fontSize: '1.3rem' }}>Shift Management & Schedules</h2>
+              </div>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '6px' }}
+                onClick={() => setIsShiftModalOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick Shift Assignment Form */}
+            <form onSubmit={handleAssignShiftSubmit} style={{ background: 'var(--surface-muted)', padding: '16px', borderRadius: 'var(--radius)', marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '10px', color: 'var(--text-main)' }}>
+                Assign Employee to Shift
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '10px', alignItems: 'flex-end' }}>
+                <div>
+                  <label className="label">Employee</label>
+                  <select
+                    className="input"
+                    value={assignData.employee_id}
+                    onChange={(e) => setAssignData({ ...assignData, employee_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Employee</option>
+                    {employees.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.full_name} ({e.department})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Shift Schedule</label>
+                  <select
+                    className="input"
+                    value={assignData.shift_id}
+                    onChange={(e) => setAssignData({ ...assignData, shift_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Shift</option>
+                    {shifts.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.start_time} - {s.end_time})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={assigningShift}
+                  style={{ height: '38px', whiteSpace: 'nowrap' }}
+                >
+                  {assigningShift ? 'Assigning...' : 'Assign'}
+                </button>
+              </div>
+            </form>
+
+            {/* Active Shifts Summary */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Configured Shifts
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                {shifts.map((s) => (
+                  <div key={s.id} style={{ background: '#ffffff', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px' }}>
+                    <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>{s.name}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: '600' }}>{s.start_time} - {s.end_time}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{s.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Assignments Roster */}
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Current Team Shift Roster ({shiftAssignments.length})
+              </div>
+              <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border)' }}>
+                    <tr>
+                      <th style={{ padding: '8px 12px', textAlign: 'left' }}>Employee</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left' }}>Department</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left' }}>Assigned Shift</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left' }}>Timings</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shiftAssignments.map((a) => (
+                      <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: '600' }}>{a.employee_name}</td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{a.department}</td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <span className="badge badge-indigo">{a.shift_name}</span>
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{a.start_time} - {a.end_time}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -77,6 +77,11 @@ class EmployeeOut(EmployeeBase):
     user_id: Optional[int] = None
     user_email: Optional[str] = None
     user_role: Optional[str] = None
+    current_shift: Optional[str] = None
+    shift_id: Optional[int] = None
+    shift_timings: Optional[str] = None
+    avg_rating: Optional[float] = None
+    attendance_today: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -218,14 +223,160 @@ class NotificationCreate(BaseModel):
     user_id: int
     title: str
     message: str
+    category: Optional[str] = "SYSTEM"
 
 class NotificationOut(BaseModel):
     id: int
     user_id: int
     title: str
     message: str
+    category: str = "SYSTEM"
     is_read: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+# --- Shifts & Employee Shifts (Module 14) ---
+class ShiftBase(BaseModel):
+    name: str
+    start_time: str
+    end_time: str
+    description: Optional[str] = None
+
+class ShiftCreate(ShiftBase):
+    pass
+
+class ShiftOut(ShiftBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class EmployeeShiftAssign(BaseModel):
+    employee_id: int
+    shift_id: int
+
+class EmployeeShiftOut(BaseModel):
+    id: int
+    employee_id: int
+    employee_name: Optional[str] = None
+    department: Optional[str] = None
+    shift_id: int
+    shift_name: str
+    start_time: str
+    end_time: str
+    assigned_date: date
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+# --- Document Management System (Module 16) ---
+class DocumentOut(BaseModel):
+    id: int
+    employee_id: int
+    employee_name: Optional[str] = None
+    title: str
+    document_type: str
+    file_name: str
+    file_url: str
+    file_size: int
+    uploaded_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# --- Performance Management System (Module 17) ---
+class PerformanceCreate(BaseModel):
+    employee_id: int
+    review_period: str
+    rating: float
+    feedback: str
+    reviewer_name: Optional[str] = None
+    goals: Optional[str] = None
+
+class PerformanceUpdate(BaseModel):
+    rating: Optional[float] = None
+    feedback: Optional[str] = None
+    goals: Optional[str] = None
+
+class PerformanceOut(BaseModel):
+    id: int
+    employee_id: int
+    employee_name: Optional[str] = None
+    department: Optional[str] = None
+    review_period: str
+    rating: float
+    feedback: str
+    reviewer_name: Optional[str] = None
+    goals: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PerformanceStatsOut(BaseModel):
+    total_reviews: int
+    average_rating: float
+    rating_distribution: dict[str, int]
+
+
+# --- Leave Calendar & Conflict (Module 15) ---
+class LeaveCalendarEvent(BaseModel):
+    id: int
+    employee_id: int
+    employee_name: str
+    department: str
+    leave_type: LeaveType
+    start_date: date
+    end_date: date
+    days_count: float
+    status: LeaveStatus
+
+class LeaveConflictCheck(BaseModel):
+    employee_id: int
+    start_date: date
+    end_date: date
+
+class LeaveConflictResult(BaseModel):
+    has_conflict: bool
+    conflict_count: int
+    conflicts: list[LeaveCalendarEvent]
+    message: str
+
+
+# --- Advanced Analytics & Reports (Module 18) ---
+class AttendanceTrendPoint(BaseModel):
+    date: str
+    present: int
+    late: int
+    absent: int
+    attendance_rate: float
+
+class LeaveTrendPoint(BaseModel):
+    month: str
+    approved: int
+    pending: int
+    rejected: int
+
+class DepartmentReport(BaseModel):
+    department: str
+    total_employees: int
+    present_today: int
+    on_leave_today: int
+    avg_rating: float
+    monthly_payroll: float
+
+class AnalyticsOverviewOut(BaseModel):
+    total_employees: int
+    attendance_rate_month: float
+    avg_performance_rating: float
+    active_leaves_today: int
+    total_monthly_payroll: float
+    attendance_trends: list[AttendanceTrendPoint]
+    leave_trends: list[LeaveTrendPoint]
+    department_reports: list[DepartmentReport]

@@ -1,49 +1,57 @@
 # WorkSphere – HR Management System (HRMS)
 
 **WorkSphere** is a modern, enterprise-grade HR Management System built using **FastAPI** (Python 3.13) and **React** (Vite).
-Following the completion of Phase 1, **Phase 2** upgrades WorkSphere into a secure, role-driven enterprise platform featuring **Role-Based Access Control (RBAC)**, an **Employee Self-Service (ESS) Portal**, **Advanced Attendance Controls**, **Leave Policies & Balances**, **Enhanced Payroll Breakdown**, and **Admin Controls & User Governance**.
+Following the completion of Phase 1 and Phase 2, **Phase 3** enhances WorkSphere into an intelligent, automated HR platform with **Automated Attendance & Shift Management**, **Team Leave Calendar & Out-of-Office Conflicts**, a **Secure Document Management Vault**, a **Performance Review & Ratings System**, **Advanced Workforce Analytics & CSV Reports**, **Smart Notifications & Alert Categorization**, and **Advanced Multi-Faceted Employee Search**.
 
 ---
 
 ## 🏛️ System Architecture
 
 ```
-WorkSphere HRMS (Phase 2 Upgrade)
+WorkSphere HRMS (Phase 3 Enterprise Upgrade)
 ├── backend/
 │   ├── venv/                   # Python Virtual Environment
 │   ├── database.py             # SQLite / SQLAlchemy Engine & Session
-│   ├── models.py               # ORM Models (Users, Employees, Attendance, Leaves, LeavePolicy, LeaveBalance, Payroll, Notifications)
+│   ├── models.py               # ORM Models (Users, Employees, Shifts, EmployeeShifts, Attendance, Leaves, LeavePolicy, LeaveBalance, Documents, Performance, Payroll, Notifications)
 │   ├── schemas.py              # Pydantic Schemas for Validation & Serialization
 │   ├── auth.py                 # JWT Authentication, is_active checks & RBAC Guards
-│   ├── seed_data.py            # Phase 2 Database Seeding with Policies & Balances
-│   ├── test_api.py             # Phase 2 End-to-End Test Suite (100% Passing)
-│   ├── main.py                 # FastAPI Application with CORS & Phase 2 Routers
+│   ├── seed_data.py            # Phase 3 Database Seeding (Shifts, Docs, Performance, Balances, Payroll)
+│   ├── test_api.py             # Comprehensive Test Suite (100% Passing)
+│   ├── main.py                 # FastAPI Application with CORS & Phase 3 Routers
+│   ├── uploads/                # Encrypted Local Vault for Verified Employee Documents
 │   └── routers/
 │       ├── auth.py             # /api/auth (Login, Register, Me)
-│       ├── employees.py        # /api/employees (CRUD, Search, Filter, Auto-initialization)
-│       ├── attendance.py       # /api/attendance (Check-In, Multi-punch Lock, Late Tracking, Overtime, Auto-Absent)
-│       ├── leaves.py           # /api/leaves (Apply, Balances, Policies, Auto-Deductions, Over-usage Lock)
+│       ├── employees.py        # /api/employees (CRUD, Search, Multi-Filters, Shift/Rating/Attendance Badges)
+│       ├── attendance.py       # /api/attendance (Shift-aware Check-In, Late Tracking, Overtime, Auto-Mark)
+│       ├── leaves.py           # /api/leaves (Apply, Balances, Policies, Calendar, Availability, Conflict Engine)
+│       ├── shifts.py           # /api/shifts (CRUD Shifts, Shift Assignments, My-Shift)
+│       ├── documents.py        # /api/documents (Upload, Secure Download, Category Filters, RBAC)
+│       ├── performance.py      # /api/performance (Reviews, Star Ratings, Goals, HR Stats)
+│       ├── analytics.py        # /api/analytics (Workforce Overview, Daily Attendance Trends, CSV Exports)
 │       ├── payroll.py          # /api/payroll (Generate Breakdown, Summary, Payslip)
 │       ├── dashboard.py        # /api/dashboard (Executive KPIs & ESS Personal Telemetry)
-│       ├── notifications.py    # /api/notifications (Read, Mark All Read)
+│       ├── notifications.py    # /api/notifications (Categorized Alerts, Mark Read, Clear/Delete)
 │       └── admin.py            # /api/admin (User Management, Role Assignments, Status Toggles, Security Stats)
 │
 └── frontend/
     ├── src/
     │   ├── components/
-    │   │   ├── NotificationsModal.jsx  # Real-time Notifications Drawer
-    │   │   └── PayslipModal.jsx        # Corporate Salary Payslip Receipt (HRA, Spl, PF, Tax)
+    │   │   ├── NotificationsModal.jsx  # Smart Alerts Drawer with 8 Category Filters & Clear All
+    │   │   └── PayslipModal.jsx        # Indian Form 16 Salary Payslip Receipt (HRA, Spl, PF, Tax)
     │   ├── views/
     │   │   ├── LoginView.jsx           # JWT Auth, Register, 1-Click Role Logins (Admin, HR, Emp, Deactive)
     │   │   ├── DashboardView.jsx       # Employee Self-Service (ESS) Portal & Executive KPI Dashboard
-    │   │   ├── EmployeesView.jsx       # Employee Directory, Profile Modal, Add/Edit
-    │   │   ├── AttendanceView.jsx      # Multi-punch Lock, Late Badges, Overtime, Auto-mark Absent
-    │   │   ├── LeavesView.jsx          # Leave Balances (CL/SL/PL), Policies, Live Validation Warnings
+    │   │   ├── EmployeesView.jsx       # Advanced Search & Multi-Filters (Shift, Rating, Attendance, Role)
+    │   │   ├── AttendanceView.jsx      # Shift Schedule Display, Shift Roster Modal, Late Entry Alerts
+    │   │   ├── LeavesView.jsx          # Leave Balances, Team Leave Calendar, Team Availability Dashboard & Conflict Detection
+    │   │   ├── DocumentsView.jsx       # Module 16 Secure Document Vault & File Upload Modal
+    │   │   ├── PerformanceView.jsx     # Module 17 Performance Reviews, Star Ratings, Stats & Goal Tracking
+    │   │   ├── AnalyticsView.jsx       # Module 18 Visual Trend Charts, Department Reports & CSV Export
     │   │   ├── PayrollView.jsx         # Salary Breakdown Generator, Monthly Summary KPI Bar, Payslips
     │   │   └── AdminControlsView.jsx   # Module 13 User Governance, Role Assignment, Activation Switches
     │   ├── services/
-    │   │   └── api.js                  # Centralized Fetch Client with Bearer Token & Phase 2 APIs
-    │   ├── App.jsx                     # Shell Layout, RBAC Route Protection, Role Indicators
+    │   │   └── api.js                  # Centralized Fetch Client with Bearer Token & Phase 3 APIs
+    │   ├── App.jsx                     # Shell Layout, RBAC Route Protection, Dynamic Role Navigation
     │   ├── App.css                     # Custom Layouts & Components
     │   └── index.css                   # Enterprise CSS Design System (Badges, Switch Toggles, Progress Bars)
     └── vite.config.js                  # Vite Config with Backend Proxy
@@ -51,87 +59,167 @@ WorkSphere HRMS (Phase 2 Upgrade)
 
 ---
 
-## 🚀 Phase 2 Features & Enhancements
+## 📸 Phase 3 Feature Showcase (Screenshots)
 
-### Module 8: Role-Based Access Control (RBAC) – FastAPI
-- **Users Table Update**:
-  - `role` (`EMPLOYEE` / `HR` / `ADMIN`)
-  - `is_active` (`True` / `False`) for instant account lockouts
-- **Security & Authorization**:
-  - Embedded role in JWT token payload (`sub`, `role`, `user_id`).
-  - Strict middleware/dependency `require_roles([allowed_roles])` and `is_active` check on every protected API.
-  - Ownership validation: Employees cannot inspect other personnel records, punches, or payslips.
-  - Deactivated accounts are blocked with `HTTP 403 Forbidden`.
-
-### Module 9: Employee Self-Service (ESS) Portal
-- **Dedicated Employee View**: When logging in as `EMPLOYEE` (e.g. Suraj), the dashboard dynamically morphs into an Employee Self-Service Portal.
-- **Personal Details & Identity**: Profile card showcasing Employee ID, Designation, Department, Date of Joining, and Account Status.
-- **Today's Shift & Punches**: Live interactive punch widget with digital clock, shift hours (09:30 AM – 06:30 PM), on-time vs late pill tags, and total clocked time.
-- **Leave Entitlement Cards**: Visual cards for Casual Leave, Sick Leave, and Paid Leave with used/remaining days and animated progress bars.
-- **Quick Payslip Access**: One-click launcher to inspect and print latest monthly payslip with earnings and deductions breakdown.
-
-### Module 10: Advanced Attendance Controls
-- **Duplicate Punch Prevention**: Prevents multiple check-ins per day with descriptive HTTP 400 Bad Request if already clocked in or shift completed.
-- **Late Entry Tracking**: Standard shift starts at 09:30 AM IST. Punches past 09:30 AM automatically compute `late_minutes`, set `is_late = True`, and render an amber pill indicator with exact late duration.
-- **Overtime Calculation**: Working hours beyond 8.0 hours automatically calculate `overtime_hours` with purple badge tags.
-- **Auto-Mark Absent Utility**: Dedicated endpoint (`/api/attendance/auto-mark-absent`) and UI modal for HR/Admin to automatically mark absent for active staff who missed check-in on any workday.
-
-### Module 11: Leave Policies & Balances
-- **New Tables**:
-  - `leave_policies`: `id`, `leave_type`, `total_days_allowed`, `description`.
-  - `leave_balances`: `id`, `employee_id`, `leave_type`, `total_days`, `used_days`, `remaining_days`.
-- **Over-Usage Prevention**: Live duration calculator validates requested days against remaining balance. If requested duration exceeds balance, submission is disabled with a clear warning alert.
-- **Automated Deduction**: When HR/Admin approves a leave request, the exact requested duration is automatically deducted from `leave_balances`.
-
-### Module 12: Payroll Enhancements
-- **Granular Salary Breakdown**:
-  - **Earnings**: Basic Salary (50%), House Rent Allowance (HRA, 30%), Special Allowance (20%), Performance Bonus.
-  - **Deductions**: Employee Provident Fund (EPF, 12%), Professional Tax (PT, ₹200), Income Tax (TDS).
-  - **Net Take-Home**: `(Basic + HRA + Special + Bonus) - Total Deductions`.
-- **Monthly Payroll Summary**: Header KPI bar displaying Total Net Disbursed, Total Gross Earnings, Total Statutory Deductions, and Total Allowances.
-- **Detailed Corporate Payslip (`PayslipModal.jsx`)**: Complete Indian Form 16 payslip layout with employee ID, PF UAN, bank details, two-column earnings vs deductions tables, and print/PDF support.
-
-### Module 13: Admin Controls & User Management
-- **Dedicated Admin Console (`AdminControlsView.jsx`)**: Exclusive navigation view for `ADMIN` role.
-- **User Governance**: Create new accounts, change enterprise roles (`EMPLOYEE` / `HR` / `ADMIN`), reset user passwords, and delete accounts.
-- **Instant Status Toggle**: Active / Deactivated toggle switch that immediately revokes or restores login privileges.
-- **System Security Metrics**: Real-time counter of total system accounts, active users, deactivated users, and role distribution.
+| Feature & Module | Screenshot Preview |
+|---|---|
+| **Module 14: Shift Schedules & Timing** | ![Shift Schedule](Screenshots/phase3_shifts_schedule.png) |
+| **Module 14: Shift Rosters & Assignment** | ![Shift Rosters Modal](Screenshots/phase3_shift_rosters_modal.png) |
+| **Module 15: Team Leave Calendar** | ![Team Leave Calendar](Screenshots/phase3_team_leave_calendar.png) |
+| **Module 15: Team Availability Dashboard** | ![Team Availability](Screenshots/phase3_team_availability.png) |
+| **Module 16: Document Vault & Uploads** | ![Document Vault](Screenshots/phase3_document_vault.png) |
+| **Module 17: Performance Reviews & Ratings** | ![Performance Reviews](Screenshots/phase3_performance_reviews.png) |
+| **Module 18: Workforce Analytics & Trends** | ![Workforce Analytics](Screenshots/phase3_workforce_analytics.png) |
+| **Module 19: Smart Notifications & Alerts** | ![Smart Notifications](Screenshots/phase3_smart_notifications.png) |
+| **Module 20: Advanced Employee Search & Filters** | ![Advanced Search & Filters](Screenshots/phase3_advanced_employee_filters.png) |
 
 ---
 
-## 🔑 Demo Login Credentials (Phase 2)
+## 🚀 Complete 20-Module Feature Breakdown
 
-| Role | Username | Password | Full Name & Title | Access Scope |
-|---|---|---|---|---|
-| **System Admin** | `admin` | `admin123` | Rajesh Sharma (Director of Engineering) | Full System Access, Admin Controls, User Management, Analytics |
-| **HR Operations** | `neha_hr` | `hr123` | Neha Kulkarni (Manager - People Operations) | Staff Directory, Leave Approvals, Shift Audits, Payroll Runs |
-| **Employee (ESS)** | `suraj` | `emp123` | Suraj (Senior Full-Stack Engineer) | Self-Service Portal, Check-In/Out, My Leaves & Balances, My Payslips |
-| **Deactivated Account** | `kunal_contractor` | `emp123` | Kunal Verma (Contractor) | Blocked with 403 Forbidden (Tests Deactivation Engine) |
+### Phase 1: Core Foundation & HR Workflows (Modules 1–7)
+- **Module 1**: Modern responsive SPA foundation with minimalist design system.
+- **Module 2**: Full CRUD Employee Management with Indian rupee salary formatting.
+- **Module 3**: Daily Attendance Punch system with check-in/out logging.
+- **Module 4**: Leave Application and Approval workflow.
+- **Module 5**: Automated Monthly Payroll generator with net salary calculation.
+- **Module 6**: Real-time Executive KPI dashboard.
+- **Module 7**: System notifications drawer.
 
 ---
 
-## 💻 How to Run Locally
+### Phase 2: Role-Based Access Control & Advanced HR Workflows (Modules 8–13)
+- **Module 8: Role-Based Access Control (RBAC)**:
+  - User roles (`EMPLOYEE`, `HR`, `ADMIN`) embedded in JWT tokens.
+  - Strict endpoint authorization via `require_roles([allowed_roles])`.
+  - Immediate login rejection (`403 Forbidden`) for deactivated accounts.
+- **Module 9: Employee Self-Service (ESS) Portal**:
+  - Personalized employee view for profile details, punch status, leave balances, and payslips.
+- **Module 10: Advanced Attendance Controls**:
+  - Duplicate check-in prevention, late check-in detection, overtime tracking, and auto-absence engine.
+- **Module 11: Leave Policies & Balances**:
+  - Separate policy allowances for Casual (12d), Sick (10d), and Paid (18d) leave.
+  - Live over-usage validation preventing applications exceeding remaining balance.
+- **Module 12: Granular Payroll Breakdown**:
+  - Basic (50%), HRA (30%), Special Allowance (20%), PF (12%), Professional Tax, and Income Tax deductions.
+  - Detailed corporate payslip receipt with print support.
+- **Module 13: Admin Controls & User Governance**:
+  - Admin panel for creating accounts, switching roles, resetting passwords, and toggling user activation.
 
-### 1. Backend (FastAPI)
-```bash
+---
+
+### Phase 3: Automation, Insights & Smart HR Features (Modules 14–20)
+
+#### Module 14: Automated Attendance & Shift Management
+- **Shift Definitions**: Pre-configured shifts including Morning Shift (08:00 – 16:30), General Shift (09:30 – 18:30), Evening Shift (14:00 – 22:30), and Night Shift (22:00 – 06:30).
+- **Shift Assignments**: HR and Admin can assign team members to specific shift rosters via `/api/shifts/assign` and the Shift Rosters UI modal.
+- **Shift-Aware Late Detection**: Attendance punch evaluations dynamically assess punctuality against the employee's active shift start time (with 15-minute grace period).
+- **Employee Shift Schedule View**: The digital clock banner displays the employee's assigned shift name and working hours in real time.
+
+#### Module 15: Leave Calendar & Team View
+- **Team Leave Calendar**: Visual schedule grid mapping upcoming employee out-of-office dates, filterable by department.
+- **Team Availability Dashboard**: Real-time operational roster displaying who is Available vs On Leave today across all corporate departments.
+- **Leave Conflict Engine**: Automated overlap detection (`/api/leaves/conflicts`) alerts employees if colleagues in their department already have scheduled leaves during the requested dates.
+
+#### Module 16: Document Management System
+- **Secure File Storage**: Local encrypted vault (`backend/uploads/`) for verified employee documents.
+- **Document Categories**: Identity Documents (Aadhaar, Passport), Offer Letters, Academic Degrees, Professional Certifications, and Tax Forms.
+- **Role-Isolated Access**: Employees securely view and download only their verified personal documents; HR and Admin can audit and manage company-wide files.
+- **Direct File Downloads**: Secure streaming endpoint (`/api/documents/{id}/download`) enforcing JWT ownership checks.
+
+#### Module 17: Performance Management System
+- **Appraisal Records**: Structured performance evaluations with review periods (e.g. Q1, Q2, Q3, Annual), 1.0 to 5.0 star ratings, qualitative manager feedback, and forward-looking milestones.
+- **Company Rating Analytics**: High-level statistics on average company rating, total reviews filed, top performer distribution (4.5★+), and solid contributor ratios.
+- **Employee Review History**: Employees can view their historical manager appraisals and career growth milestones.
+
+#### Module 18: Advanced Analytics & Reports
+- **Attendance Trend Patterns**: Interactive visual bar charts illustrating daily punctuality, on-time presence rates, and late check-in volumes over 7, 14, or 30 days.
+- **Department Operational Metrics**: Headcount allocations, daily present counts, active leaves, average performance index, and monthly payroll disbursement per department.
+- **CSV Data Exports**: One-click direct downloads for Department Analytics CSV, Attendance Audit Log CSV, and Leave History CSV.
+
+#### Module 19: Smart Notifications & Alerts
+- **Categorized Alert Engine**: Notifications are systematically classified into `ATTENDANCE`, `LEAVE`, `PAYROLL`, `SHIFT`, `PERFORMANCE`, `DOCUMENT`, and `SYSTEM`.
+- **Automated Event Triggers**: Instant alerts generated on late entry, shift reassignment, payslip credit, appraisal publishing, and leave status updates.
+- **Filterable Notification Drawer**: Filter alerts by category pills, mark all as read, dismiss individual alerts, or clear all.
+
+#### Module 20: Employee Search & Filters (Advanced)
+- **Multi-Faceted Search**: Instant search by Name, Department, Designation, or Email.
+- **Facet Dropdowns**:
+  - Filter by User Role (`ADMIN`, `HR`, `EMPLOYEE`)
+  - Filter by Assigned Shift (`General Shift`, `Morning Shift`, `Evening Shift`, `Night Shift`)
+  - Filter by Today's Attendance (`PRESENT`, `LATE ENTRY`, `ABSENT`, `NOT YET`)
+  - Filter by Performance Rating (`4.5★ & Above`, `4.0★ & Above`, `3.5★ & Above`)
+  - Filter by Account Status (`ACTIVE`, `INACTIVE`)
+- **Rich Table Indicators**: Table rows showcase assigned shift badges, live attendance pill tags, and star ratings alongside compensation and status.
+
+---
+
+## 🔑 Default Seeded Accounts & Credentials
+
+| Role | Username | Password | Full Name | Department | Assigned Shift |
+|---|---|---|---|---|---|
+| **Admin** | `admin` | `admin123` | Rajesh Sharma | Executive Management | General Shift (09:30 - 18:30) |
+| **HR Manager** | `neha_hr` | `hr123` | Neha Kulkarni | Human Resources | General Shift (09:30 - 18:30) |
+| **Employee** | `suraj` | `emp123` | Suraj | Engineering | General Shift (09:30 - 18:30) |
+| **Employee** | `priya_ui` | `emp123` | Priya Nair | Design & UX | General Shift (09:30 - 18:30) |
+| **Employee** | `rohit_qa` | `emp123` | Rohit Deshmukh | Engineering | Morning Shift (08:00 - 16:30) |
+| **Employee** | `sneha_fin` | `emp123` | Sneha Iyer | Finance & Accounts | General Shift (09:30 - 18:30) |
+| **Employee** | `vikram_sales` | `emp123` | Vikram Malhotra | Sales & Growth | Evening Shift (14:00 - 22:30) |
+| **Deactivated** | `kunal_contractor` | `emp123` | Kunal Verma | Engineering | Inactive (403 Blocked) |
+
+---
+
+## 🛠️ Verification & Test Execution
+
+Run the end-to-end automated test suite to verify all Phase 1, Phase 2, and Phase 3 modules:
+
+```powershell
 cd backend
-# Activate Python Virtual Environment
-venv\Scripts\activate   # Windows
-# Run server with auto-reload
-python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+.\venv\Scripts\python test_api.py
 ```
-Interactive Swagger API Documentation: `http://127.0.0.1:8000/docs`
 
-### 2. Frontend (React + Vite)
-```bash
+Expected output:
+```
+=== Testing WorkSphere Phase 3 (Automation, Insights & Smart HR Features) ===
+ [OK] Root health check & Phase 3 API version 3.0.0 verified
+ [OK] Admin, HR, and Employee JWT authentication tokens verified
+ [OK] Shift Management: Retrieved 4 shifts (General: 09:30 - 18:30)
+ [OK] Employee Shift View: Active shift 'General Shift' confirmed for Suraj
+ [OK] Shift Assignments: HR retrieved 8 active assignments
+ [OK] Team Leave Calendar: 5 calendar events loaded
+ [OK] Leave Conflict Engine: Evaluated schedule (has_conflict=False)
+ [OK] Team Availability Dashboard: 7 active available team members
+ [OK] Document Vault: Employee retrieved 3 verified personal documents
+ [OK] Secure Document Download: Downloaded document 3 successfully
+ [OK] Document Upload: Successfully uploaded test document (ID=7)
+ [OK] Document Deletion: Cleaned up temporary test document
+ [OK] Performance Reviews: Employee retrieved 2 reviews (Latest: 4.9* in Q2 2026)
+ [OK] Performance Analytics: Average rating 4.62 across 6 reviews
+ [OK] Analytics Overview: 7 daily trend points, 6 department reports
+ [OK] Reports Export: Successfully exported department analytics CSV
+ [OK] Smart Notifications: Category filter 'SYSTEM' returned 2 items
+ [OK] Smart Notifications: Category filter 'SHIFT' returned 1 items
+ [OK] Advanced Search: Found employee by name 'Suraj'
+ [OK] Shift Filter: Filtered 5 employees in General Shift
+ [OK] Performance Filter: Found 4 employees with >= 4.5 avg rating
+
+ All 20 WorkSphere Modules (Phase 1, 2, and 3) verified successfully with 100% test pass!
+```
+
+---
+
+## 💻 Running Locally
+
+### Backend (FastAPI)
+```powershell
+cd backend
+.\venv\Scripts\uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+API Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+### Frontend (React + Vite)
+```powershell
 cd frontend
-# Start Vite development server
 npm run dev
 ```
-WorkSphere HRMS Web Application: `http://localhost:5173`
-
-### 3. Run Automated Test Suite
-```bash
-backend\venv\Scripts\python backend\test_api.py
-```
-*(Tests RBAC, Deactivation locks, Duplicate Punch Locks, Late Entry tags, Over-Usage prevention, Balances, and Payroll Breakdown)*
+Client URL: [http://localhost:5173](http://localhost:5173)

@@ -4,7 +4,7 @@ from datetime import datetime, date
 from typing import List, Optional
 
 from database import get_db
-from models import Attendance, Employee, User, UserRole, AttendanceStatus, EmployeeStatus, Notification
+from models import Attendance, Employee, User, UserRole, AttendanceStatus, EmployeeStatus, Notification, EmployeeShift, Shift
 from schemas import AttendanceOut, AttendanceManualCreate
 from auth import get_current_user, require_roles
 
@@ -27,12 +27,32 @@ def calculate_hours_and_status(check_in: Optional[datetime], check_out: Optional
     overtime = round(max(0.0, hours - STANDARD_SHIFT_HOURS), 2)
     return hours, att_status, overtime
 
-def check_late_entry(check_in_time: datetime):
+def check_shift_late_entry(db: Session, employee_id: int, check_in_time: datetime):
+    assignment = db.query(EmployeeShift).filter(
+        EmployeeShift.employee_id == employee_id,
+        EmployeeShift.is_active == True
+    ).first()
+
+    shift_title = "Standard (09:30 AM)"
+    if assignment and assignment.shift and assignment.shift.start_time:
+        try:
+            parts = assignment.shift.start_time.split(":")
+            sh_h, sh_m = int(parts[0]), int(parts[1])
+            shift_start_min = sh_h * 60 + sh_m
+            cutoff_min = shift_start_min + 15
+            current_min = check_in_time.hour * 60 + check_in_time.minute
+            shift_title = f"{assignment.shift.name} ({assignment.shift.start_time})"
+            if current_min > cutoff_min:
+                return True, current_min - shift_start_min, shift_title
+            return False, 0, shift_title
+        except Exception:
+            pass
+
     total_minutes = check_in_time.hour * 60 + check_in_time.minute
     shift_start = STANDARD_SHIFT_START_HOUR * 60 + STANDARD_SHIFT_START_MINUTE
     if total_minutes > shift_start:
-        return True, total_minutes - shift_start
-    return False, 0
+        return True, total_minutes - shift_start, shift_title
+    return False, 0, shift_title
 
 def _to_attendance_out(r: Attendance, emp: Optional[Employee] = None) -> AttendanceOut:
     employee = emp or r.employee
@@ -94,7 +114,7 @@ def check_in(
                 detail=f"Already checked in today at {record.check_in.strftime('%I:%M %p')}."
             )
 
-    is_late, late_min = check_late_entry(now)
+    is_late, late_min, shift_title = check_shift_late_entry(db, current_user.employee.id, now)
 
     if record:
         record.check_in = now
@@ -121,7 +141,8 @@ def check_in(
         db.add(Notification(
             user_id=current_user.id,
             title="Late Entry Recorded",
-            message=f"Punched in at {now.strftime('%I:%M %p')} ({late_min}m after 09:30 AM shift start)."
+            message=f"Punched in at {now.strftime('%I:%M %p')} ({late_min}m after {shift_title} shift start).",
+            category="ATTENDANCE"
         ))
         db.commit()
 
@@ -160,7 +181,8 @@ def check_out(
         db.add(Notification(
             user_id=current_user.id,
             title="Overtime Clocked",
-            message=f"Completed {hours} hours today with {overtime} hours overtime."
+            message=f"Completed {hours} hours today with {overtime} hours overtime.",
+            category="ATTENDANCE"
         ))
         db.commit()
 

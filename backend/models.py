@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime, date, time
+from datetime import datetime, date
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Date, ForeignKey, Enum, Text
 from sqlalchemy.orm import relationship
 from database import Base
@@ -59,6 +59,32 @@ class Employee(Base):
     leaves = relationship("Leave", back_populates="employee", cascade="all, delete-orphan")
     payrolls = relationship("Payroll", back_populates="employee", cascade="all, delete-orphan")
     leave_balances = relationship("LeaveBalance", back_populates="employee", cascade="all, delete-orphan")
+    employee_shifts = relationship("EmployeeShift", back_populates="employee", cascade="all, delete-orphan")
+    documents = relationship("Document", back_populates="employee", cascade="all, delete-orphan")
+    performances = relationship("Performance", back_populates="employee", cascade="all, delete-orphan")
+
+class Shift(Base):
+    __tablename__ = "shifts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, nullable=False)  # Morning, Evening, Night, General
+    start_time = Column(String(10), nullable=False)        # "09:00"
+    end_time = Column(String(10), nullable=False)          # "18:00"
+    description = Column(String(200), nullable=True)
+
+    employee_shifts = relationship("EmployeeShift", back_populates="shift", cascade="all, delete-orphan")
+
+class EmployeeShift(Base):
+    __tablename__ = "employee_shifts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    shift_id = Column(Integer, ForeignKey("shifts.id", ondelete="CASCADE"), nullable=False)
+    assigned_date = Column(Date, default=date.today, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    employee = relationship("Employee", back_populates="employee_shifts")
+    shift = relationship("Shift", back_populates="employee_shifts")
 
 class Attendance(Base):
     __tablename__ = "attendance"
@@ -110,6 +136,34 @@ class LeaveBalance(Base):
 
     employee = relationship("Employee", back_populates="leave_balances")
 
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(150), nullable=False)
+    document_type = Column(String(50), nullable=False, default="General")
+    file_name = Column(String(255), nullable=False)
+    file_url = Column(String(500), nullable=False)
+    file_size = Column(Integer, default=0, nullable=False)
+    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    employee = relationship("Employee", back_populates="documents")
+
+class Performance(Base):
+    __tablename__ = "performance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    review_period = Column(String(50), nullable=False)
+    rating = Column(Float, nullable=False, default=5.0)
+    feedback = Column(Text, nullable=False)
+    reviewer_name = Column(String(100), nullable=True)
+    goals = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    employee = relationship("Employee", back_populates="performances")
+
 class Payroll(Base):
     __tablename__ = "payroll"
 
@@ -123,7 +177,7 @@ class Payroll(Base):
     tax_deduction = Column(Float, nullable=False, default=0.0)
     deductions = Column(Float, nullable=False, default=0.0)
     net_salary = Column(Float, nullable=False, default=0.0)
-    month = Column(String(20), nullable=False)  # e.g. "October 2026"
+    month = Column(String(20), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     employee = relationship("Employee", back_populates="payrolls")
@@ -135,6 +189,7 @@ class Notification(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(150), nullable=False)
     message = Column(Text, nullable=False)
+    category = Column(String(50), default="SYSTEM", nullable=False)  # ATTENDANCE, LEAVE, PAYROLL, SHIFT, PERFORMANCE, DOCUMENT
     is_read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

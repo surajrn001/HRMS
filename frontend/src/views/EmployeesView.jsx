@@ -20,10 +20,15 @@ export default function EmployeesView({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filters
+  // Module 20: Advanced Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedShiftId, setSelectedShiftId] = useState('');
+  const [selectedAttendance, setSelectedAttendance] = useState('');
+  const [selectedRating, setSelectedRating] = useState('');
+  const [shifts, setShifts] = useState([]);
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -50,8 +55,12 @@ export default function EmployeesView({ user }) {
   const isAdmin = user?.role === 'ADMIN';
 
   useEffect(() => {
+    api.getShifts().then((s) => setShifts(s || [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     fetchEmployees();
-  }, [searchTerm, selectedDept, selectedStatus]);
+  }, [searchTerm, selectedDept, selectedStatus, selectedRole, selectedShiftId, selectedAttendance, selectedRating]);
 
   const fetchEmployees = async () => {
     try {
@@ -60,6 +69,10 @@ export default function EmployeesView({ user }) {
         search: searchTerm || undefined,
         department: selectedDept || undefined,
         status: selectedStatus || undefined,
+        role: selectedRole || undefined,
+        shift_id: selectedShiftId || undefined,
+        attendance_today: selectedAttendance || undefined,
+        min_rating: selectedRating ? parseFloat(selectedRating) : undefined,
       });
       setEmployees(data);
     } catch (err) {
@@ -67,6 +80,16 @@ export default function EmployeesView({ user }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setSelectedDept('');
+    setSelectedStatus('');
+    setSelectedRole('');
+    setSelectedShiftId('');
+    setSelectedAttendance('');
+    setSelectedRating('');
   };
 
   const handleOpenAdd = () => {
@@ -208,7 +231,58 @@ export default function EmployeesView({ user }) {
 
         <select
           className="form-select"
+          style={{ width: 'auto', minWidth: '120px' }}
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value)}
+        >
+          <option value="">All Roles</option>
+          <option value="ADMIN">Admin</option>
+          <option value="HR">HR</option>
+          <option value="EMPLOYEE">Employee</option>
+        </select>
+
+        <select
+          className="form-select"
           style={{ width: 'auto', minWidth: '130px' }}
+          value={selectedShiftId}
+          onChange={(e) => setSelectedShiftId(e.target.value)}
+        >
+          <option value="">All Shifts</option>
+          {shifts.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="form-select"
+          style={{ width: 'auto', minWidth: '140px' }}
+          value={selectedAttendance}
+          onChange={(e) => setSelectedAttendance(e.target.value)}
+        >
+          <option value="">All Attendance</option>
+          <option value="PRESENT">Present Today</option>
+          <option value="LATE">Late Check-in</option>
+          <option value="ABSENT">Absent</option>
+          <option value="NOT_MARKED">Not Checked In</option>
+        </select>
+
+        <select
+          className="form-select"
+          style={{ width: 'auto', minWidth: '130px' }}
+          value={selectedRating}
+          onChange={(e) => setSelectedRating(e.target.value)}
+        >
+          <option value="">All Ratings</option>
+          <option value="4.5">4.5★ & Above</option>
+          <option value="4.0">4.0★ & Above</option>
+          <option value="3.5">3.5★ & Above</option>
+        </select>
+
+        <select
+          className="form-select"
+          style={{ width: 'auto', minWidth: '120px' }}
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
         >
@@ -216,6 +290,16 @@ export default function EmployeesView({ user }) {
           <option value="ACTIVE">Active</option>
           <option value="INACTIVE">Inactive</option>
         </select>
+
+        {(searchTerm || selectedDept || selectedStatus || selectedRole || selectedShiftId || selectedAttendance || selectedRating) && (
+          <button
+            onClick={resetFilters}
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '13px' }}
+          >
+            Reset
+          </button>
+        )}
       </div>
 
       {/* Employees Table */}
@@ -226,9 +310,10 @@ export default function EmployeesView({ user }) {
               <tr>
                 <th>Employee Name</th>
                 <th>Department</th>
-                <th>Role Access</th>
+                <th>Shift Schedule</th>
+                <th>Attendance Today</th>
+                <th>Rating</th>
                 <th>Monthly Gross</th>
-                <th>Joining Date</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
@@ -286,15 +371,36 @@ export default function EmployeesView({ user }) {
                         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{emp.department}</span>
                       </td>
                       <td>
-                        <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>
-                          <Shield size={10} /> {emp.user_role || 'EMPLOYEE'}
-                        </span>
+                        {emp.current_shift ? (
+                          <span className="badge badge-indigo" title={emp.shift_timings || ''}>
+                            {emp.current_shift}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>General</span>
+                        )}
+                      </td>
+                      <td>
+                        {emp.attendance_today === 'PRESENT' ? (
+                          <span className="badge badge-emerald">PRESENT</span>
+                        ) : emp.attendance_today === 'LATE' ? (
+                          <span className="badge badge-amber">LATE ENTRY</span>
+                        ) : emp.attendance_today === 'ABSENT' ? (
+                          <span className="badge badge-danger">ABSENT</span>
+                        ) : (
+                          <span className="badge badge-secondary" style={{ color: 'var(--text-muted)' }}>NOT YET</span>
+                        )}
+                      </td>
+                      <td>
+                        {emp.avg_rating ? (
+                          <span style={{ fontWeight: '700', color: '#f59e0b', fontSize: '13px' }}>
+                            {emp.avg_rating}★
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-dim)', fontSize: '13px' }}>—</span>
+                        )}
                       </td>
                       <td style={{ fontWeight: 600, color: 'var(--text-main)' }}>
                         {formatINR(emp.salary)} / mo
-                      </td>
-                      <td style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-                        {formatDateIndian(emp.joining_date)}
                       </td>
                       <td>
                         <span className={`badge ${emp.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}>

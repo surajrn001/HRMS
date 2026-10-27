@@ -21,6 +21,13 @@ export default function LeavesView({ user }) {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
 
+  // Module 15: Leave Calendar & Team View State
+  const [activeTab, setActiveTab] = useState('requests'); // 'requests', 'calendar', 'availability'
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [calDept, setCalDept] = useState('All');
+  const [availabilityData, setAvailabilityData] = useState(null);
+  const [conflictWarning, setConflictWarning] = useState(null);
+
   // Modals
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
@@ -41,9 +48,41 @@ export default function LeavesView({ user }) {
 
   const canApprove = user?.role === 'ADMIN' || user?.role === 'HR';
 
+  // Live Conflict Check when apply dates change
+  useEffect(() => {
+    if (isApplyModalOpen && user?.employee?.id && leaveData.start_date && leaveData.end_date) {
+      api.checkLeaveConflicts(user.employee.id, leaveData.start_date, leaveData.end_date)
+        .then((res) => {
+          setConflictWarning(res?.has_conflict ? res : null);
+        })
+        .catch(() => setConflictWarning(null));
+    } else {
+      setConflictWarning(null);
+    }
+  }, [leaveData.start_date, leaveData.end_date, isApplyModalOpen]);
+
   useEffect(() => {
     fetchInitialData();
   }, [statusFilter]);
+
+  const loadCalendarAndAvailability = async () => {
+    try {
+      const [cal, avail] = await Promise.all([
+        api.getLeaveCalendar({ department: calDept !== 'All' ? calDept : undefined }).catch(() => []),
+        api.getTeamAvailability().catch(() => null),
+      ]);
+      setCalendarEvents(cal || []);
+      setAvailabilityData(avail);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'calendar' || activeTab === 'availability') {
+      loadCalendarAndAvailability();
+    }
+  }, [activeTab, calDept]);
 
   const fetchInitialData = async () => {
     try {
@@ -189,7 +228,75 @@ export default function LeavesView({ user }) {
         </div>
       </div>
 
-      {/* Leave Balances Cards */}
+      {/* Module 15: Tab Switcher */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '8px',
+          borderBottom: '1px solid var(--border)',
+          paddingBottom: '12px',
+          marginBottom: '20px',
+        }}
+      >
+        <button
+          onClick={() => setActiveTab('requests')}
+          style={{
+            background: activeTab === 'requests' ? 'var(--primary)' : 'var(--surface)',
+            color: activeTab === 'requests' ? '#ffffff' : 'var(--text-main)',
+            border: '1px solid ' + (activeTab === 'requests' ? 'var(--primary)' : 'var(--border)'),
+            padding: '8px 16px',
+            borderRadius: '20px',
+            fontSize: '13px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          My Leaves & Balances
+        </button>
+        <button
+          onClick={() => setActiveTab('calendar')}
+          style={{
+            background: activeTab === 'calendar' ? 'var(--primary)' : 'var(--surface)',
+            color: activeTab === 'calendar' ? '#ffffff' : 'var(--text-main)',
+            border: '1px solid ' + (activeTab === 'calendar' ? 'var(--primary)' : 'var(--border)'),
+            padding: '8px 16px',
+            borderRadius: '20px',
+            fontSize: '13px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <CalendarDays size={15} /> Team Leave Calendar
+        </button>
+        <button
+          onClick={() => setActiveTab('availability')}
+          style={{
+            background: activeTab === 'availability' ? 'var(--primary)' : 'var(--surface)',
+            color: activeTab === 'availability' ? '#ffffff' : 'var(--text-main)',
+            border: '1px solid ' + (activeTab === 'availability' ? 'var(--primary)' : 'var(--border)'),
+            padding: '8px 16px',
+            borderRadius: '20px',
+            fontSize: '13px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <CheckCircle2 size={15} /> Team Availability
+        </button>
+      </div>
+
+      {activeTab === 'requests' ? (
+        <>
+          {/* Leave Balances Cards */}
       <div style={{ marginBottom: '22px' }}>
         <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px' }}>
           Leave Balances & Entitlements
@@ -394,6 +501,158 @@ export default function LeavesView({ user }) {
           </tbody>
         </table>
       </div>
+      </>
+      ) : activeTab === 'calendar' ? (
+        /* Module 15: Team Leave Calendar */
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.2rem', margin: '0 0 4px 0' }}>Team Leave Calendar & Out-of-Office Schedule</h2>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                Cross-team availability overview to identify schedule overlaps and prevent department conflicts.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-muted)' }}>Department:</span>
+              <select
+                value={calDept}
+                onChange={(e) => setCalDept(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '13px', background: '#fff' }}
+              >
+                <option value="All">All Departments</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Design & UX">Design & UX</option>
+                <option value="Finance & Accounts">Finance & Accounts</option>
+                <option value="Sales & Growth">Sales & Growth</option>
+                <option value="Human Resources">Human Resources</option>
+              </select>
+            </div>
+          </div>
+
+          {calendarEvents.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              No leave schedule events for this department filter.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+              {calendarEvents.map((evt) => (
+                <div
+                  key={evt.id}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    padding: '16px',
+                    boxShadow: 'var(--shadow-sm)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span className="badge badge-indigo">{evt.department}</span>
+                    <span className={`badge ${evt.status === 'APPROVED' ? 'badge-emerald' : 'badge-amber'}`}>
+                      {evt.status}
+                    </span>
+                  </div>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', color: 'var(--text-main)' }}>
+                    {evt.employee_name}
+                  </h4>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CalendarDays size={14} />
+                    <span>
+                      {formatDateIndian(evt.start_date)} – {formatDateIndian(evt.end_date)} ({evt.days_count}d)
+                    </span>
+                  </div>
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--primary)', fontWeight: '600' }}>
+                    {evt.leave_type} Leave
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Module 15: Team Availability Dashboard */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {availabilityData && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+              <div className="glass-panel" style={{ padding: '18px 20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Active Headcount
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: '800', marginTop: '4px', color: 'var(--text-main)' }}>
+                  {availabilityData.total_active}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Staff registered</div>
+              </div>
+
+              <div className="glass-panel" style={{ padding: '18px 20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Available Today
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: '800', marginTop: '4px', color: '#10b981' }}>
+                  {availabilityData.available_count}
+                </div>
+                <div style={{ fontSize: '12px', color: '#10b981', fontWeight: '500' }}>Working / Ready for collaboration</div>
+              </div>
+
+              <div className="glass-panel" style={{ padding: '18px 20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  On Leave Today
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: '800', marginTop: '4px', color: '#f59e0b' }}>
+                  {availabilityData.on_leave_count}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Approved out-of-office</div>
+              </div>
+            </div>
+          )}
+
+          <div className="glass-panel" style={{ padding: '24px' }}>
+            <h2 style={{ fontSize: '1.2rem', margin: '0 0 16px 0' }}>Today's Team Availability Status Roster</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+              {availabilityData?.roster?.map((m) => (
+                <div
+                  key={m.employee_id}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    padding: '16px',
+                    boxShadow: 'var(--shadow-sm)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h4 style={{ margin: 0, fontSize: '15px' }}>{m.full_name}</h4>
+                    <span
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        background: m.status === 'AVAILABLE' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.15)',
+                        color: m.status === 'AVAILABLE' ? '#059669' : '#d97706',
+                      }}
+                    >
+                      {m.status === 'AVAILABLE' ? 'AVAILABLE' : 'ON LEAVE'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {m.designation} • {m.department}
+                  </div>
+                  {m.leave_range && (
+                    <div style={{ fontSize: '11px', color: '#d97706', marginTop: '4px' }}>
+                      {m.leave_type} Leave ({m.leave_range})
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal 1: Apply for Leave with Live Validation */}
       {isApplyModalOpen && (
@@ -470,6 +729,29 @@ export default function LeavesView({ user }) {
                   />
                 </div>
               </div>
+
+              {/* Conflict Detection Alert (Module 15) */}
+              {conflictWarning && (
+                <div
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '10px 14px',
+                    marginBottom: '14px',
+                    fontSize: '0.85rem',
+                    color: '#b45309',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <AlertCircle size={18} color="#f59e0b" />
+                  <div>
+                    <strong>Team Overlap Warning:</strong> {conflictWarning.message}
+                  </div>
+                </div>
+              )}
 
               {/* Live Duration & Balance Warning */}
               <div

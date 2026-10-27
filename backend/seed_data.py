@@ -2,7 +2,7 @@ from datetime import datetime, date, timedelta
 from database import SessionLocal, engine, Base
 from models import (
     User, Employee, Attendance, Leave, Payroll, Notification,
-    LeavePolicy, LeaveBalance,
+    LeavePolicy, LeaveBalance, Shift, EmployeeShift, Document, Performance,
     UserRole, EmployeeStatus, AttendanceStatus, LeaveType, LeaveStatus
 )
 from auth import get_password_hash
@@ -246,23 +246,109 @@ def seed(force_reset: bool = False):
                 created_at=datetime.now() - timedelta(days=age_days)
             ))
     db.add_all(payrolls)
+    db.commit()
 
-    # 8. Notifications
-    notifications = [
-        (users["admin"].id, "WorkSphere Phase 2 Operational", "Role-Based Access Control, ESS Portal, Advanced Attendance & Leave Balance engines are online.", False),
-        (users["admin"].id, "Security Audit: 1 Deactivated Account", "User account 'kunal_contractor' is marked inactive in system registry.", False),
-        (users["neha_hr"].id, "Pending Leave Approval", "Priya Nair submitted a Casual Leave request (2 days). Please review and approve.", False),
-        (users["suraj"].id, f"Salary Credited for {curr_month}", f"Your monthly payslip for {curr_month} is generated. Net: ₹{payrolls[-1].net_salary:,.2f}.", False),
-        (users["suraj"].id, "Late Punch Alert", "Today's check-in was registered at 09:48 AM (18 minutes past shift start time).", False),
-        (users["suraj"].id, "Diwali Leave Approved", "Your 5-day Paid Leave for Diwali has been approved. 14 days remaining in Paid balance.", True),
+    # 8. Shifts & Employee Shift Assignments (Module 14)
+    shifts = [
+        Shift(name="General Shift", start_time="09:30", end_time="18:30", description="Standard corporate hours with core team alignment"),
+        Shift(name="Morning Shift", start_time="08:00", end_time="16:30", description="Early coverage for infrastructure, release, and live support"),
+        Shift(name="Evening Shift", start_time="14:00", end_time="22:30", description="Afternoon-evening handover & international client coverage"),
+        Shift(name="Night Shift", start_time="22:00", end_time="06:30", description="Overnight 24/7 security, ops, and critical systems monitoring"),
+    ]
+    db.add_all(shifts)
+    db.commit()
+
+    shift_map = {s.name: s for s in shifts}
+    emp_shift_assignments = [
+        ("admin", "General Shift"),
+        ("neha_hr", "General Shift"),
+        ("suraj", "General Shift"),
+        ("priya_ui", "General Shift"),
+        ("rohit_qa", "Morning Shift"),
+        ("sneha_fin", "General Shift"),
+        ("vikram_sales", "Evening Shift"),
+        ("kunal_contractor", "Morning Shift"),
+    ]
+    for uname, sname in emp_shift_assignments:
+        db.add(EmployeeShift(
+            employee_id=staff[uname].id,
+            shift_id=shift_map[sname].id,
+            assigned_date=today - timedelta(days=60),
+            is_active=True
+        ))
+    db.commit()
+
+    # 9. Document Management System (Module 16)
+    import os
+    uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    sample_docs = [
+        (staff["suraj"].id, "Government ID Proof", "Identity Document", "aadhaar_suraj_verified.pdf", "Official Government Identity Document verified by HR"),
+        (staff["suraj"].id, "Appointment & Offer Letter", "Offer Letter", "offer_letter_suraj_lead.pdf", "WorkSphere Senior Engineering Offer & Compensation Breakdown"),
+        (staff["suraj"].id, "Degree Certificate", "Academic", "btech_degree_suraj.pdf", "Bachelor of Engineering (Computer Science) Degree Certificate"),
+        (staff["priya_ui"].id, "Design Portfolio & Credentials", "Certificate", "portfolio_priya_lead.pdf", "Product Design Certification & UX Portfolio Summary"),
+        (staff["rohit_qa"].id, "ISTQB Certification", "Certificate", "istqb_rohit_advanced.pdf", "ISTQB Advanced Test Automation Engineer Certificate"),
+        (staff["sneha_fin"].id, "Chartered Accountant Accreditation", "Academic", "ca_intermediate_sneha.pdf", "Finance and Statutory Accounting Credentials"),
     ]
 
-    for uid, title, msg, read in notifications:
-        db.add(Notification(user_id=uid, title=title, message=msg, is_read=read))
+    for eid, title, dtype, fname, content in sample_docs:
+        file_path = os.path.join(uploads_dir, fname)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(f"--- WorkSphere HRMS Confidential Document ---\nTitle: {title}\nType: {dtype}\nEmployee ID: {eid}\nContent: {content}\nTimestamp: {datetime.now().isoformat()}\n")
+        
+        fsize = os.path.getsize(file_path)
+        db.add(Document(
+            employee_id=eid,
+            title=title,
+            document_type=dtype,
+            file_name=fname,
+            file_url=fname,
+            file_size=fsize,
+            uploaded_at=datetime.now() - timedelta(days=15)
+        ))
+    db.commit()
+
+    # 10. Performance Management System (Module 17)
+    perf_reviews = [
+        (staff["suraj"].id, "Q1 2026", 4.8, "Delivered resilient full-stack architecture with outstanding code craftsmanship and clean documentation.", "Rajesh Sharma", "Implement real-time notification socket & analytics engine"),
+        (staff["suraj"].id, "Q2 2026", 4.9, "Spearheaded Phase 3 HRMS automation, shift scheduling, and smart analytics with zero production bugs.", "Rajesh Sharma", "Lead technical architecture reviews for cloud migration"),
+        (staff["priya_ui"].id, "Q2 2026", 4.7, "Designed modern, human-crafted UI layouts with intuitive navigation and harmonious typography.", "Rajesh Sharma", "Optimize design system tokens and accessibility contrast"),
+        (staff["rohit_qa"].id, "Q2 2026", 4.2, "Exemplary testing coverage across payroll algorithms and leave balance state transitions.", "Neha Kulkarni", "Increase automated end-to-end integration test coverage"),
+        (staff["sneha_fin"].id, "Q2 2026", 4.6, "Ensured 100% error-free monthly salary disbursement and strict statutory PF tax compliance.", "Rajesh Sharma", "Automate bank payout ledger file generation"),
+        (staff["vikram_sales"].id, "Q2 2026", 4.5, "Exceeded regional business growth targets by 24% and closed critical enterprise clients.", "Rajesh Sharma", "Scale enterprise partnerships in western region"),
+    ]
+
+    for eid, period, rating, feedback, reviewer, goals in perf_reviews:
+        db.add(Performance(
+            employee_id=eid,
+            review_period=period,
+            rating=rating,
+            feedback=feedback,
+            reviewer_name=reviewer,
+            goals=goals,
+            created_at=datetime.now() - timedelta(days=20)
+        ))
+    db.commit()
+
+    # 11. Smart Notifications with Categorization (Module 19)
+    notifications = [
+        (users["admin"].id, "WorkSphere Phase 3 Online", "Shift scheduling, Leave Calendar, Document Vault, Performance & Advanced Analytics are active.", "SYSTEM", False),
+        (users["admin"].id, "Security Audit: Inactive Account", "User account 'kunal_contractor' is marked inactive in system registry.", "SYSTEM", False),
+        (users["neha_hr"].id, "Pending Leave Request", "Priya Nair submitted a Casual Leave request (2 days). Check team calendar for conflicts.", "LEAVE", False),
+        (users["suraj"].id, "Shift Assigned: General Shift", "You have been assigned to General Shift (09:30 AM - 06:30 PM).", "SHIFT", False),
+        (users["suraj"].id, f"Salary Credited for {curr_month}", f"Payslip for {curr_month} is generated. Net Disbursed: ₹{payrolls[-1].net_salary:,.2f}.", "PAYROLL", False),
+        (users["suraj"].id, "Performance Review Published", "Rajesh Sharma recorded your Q2 2026 performance rating (4.9★ Outstanding).", "PERFORMANCE", False),
+        (users["suraj"].id, "Late Punch Alert", "Today's check-in was registered at 09:48 AM (18 minutes past General Shift start).", "ATTENDANCE", False),
+        (users["suraj"].id, "Document Verified by HR", "Your 'Government ID Proof' has been verified and stored in the secure document vault.", "DOCUMENT", True),
+    ]
+
+    for uid, title, msg, cat, read in notifications:
+        db.add(Notification(user_id=uid, title=title, message=msg, category=cat, is_read=read))
 
     db.commit()
     db.close()
-    print("Database successfully seeded for Phase 2 (RBAC, Leave Policies, Balances, Attendance Controls, Payroll Breakdown, and Admin Users).")
+    print("Database successfully seeded for Phase 3 (Shifts, Leave Calendar, Document Vault, Performance Reviews, Analytics & Smart Notifications).")
 
 if __name__ == "__main__":
     seed(force_reset=True)

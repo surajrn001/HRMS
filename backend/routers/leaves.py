@@ -6,11 +6,12 @@ from datetime import datetime, date
 from database import get_db
 from models import (
     Leave, Employee, User, UserRole, LeaveStatus, LeaveType,
-    LeavePolicy, LeaveBalance, Notification
+    LeavePolicy, LeaveBalance, Notification, EmployeeStatus
 )
 from schemas import (
     LeaveCreate, LeaveStatusUpdate, LeaveOut,
-    LeavePolicyOut, LeavePolicyCreate, LeaveBalanceOut
+    LeavePolicyOut, LeavePolicyCreate, LeaveBalanceOut,
+    LeaveCalendarEvent, LeaveConflictResult
 )
 from auth import get_current_user, require_roles
 
@@ -208,7 +209,8 @@ def apply_leave(
         db.add(Notification(
             user_id=hr_u.id,
             title=f"New Leave Request: {emp.full_name}",
-            message=f"{emp.full_name} applied for {requested_days:g} days of {new_leave.leave_type.value} leave."
+            message=f"{emp.full_name} applied for {requested_days:g} days of {new_leave.leave_type.value} leave.",
+            category="LEAVE"
         ))
     db.commit()
 
@@ -259,8 +261,142 @@ def update_leave_status(
         db.add(Notification(
             user_id=leave.employee.user.id,
             title=f"Leave Request {status_text}",
-            message=f"Your {leave.leave_type.value} leave application ({leave.start_date} to {leave.end_date}) was {status_text.lower()}."
+            message=f"Your {leave.leave_type.value} leave application ({leave.start_date} to {leave.end_date}) was {status_text.lower()}.",
+            category="LEAVE"
         ))
         db.commit()
 
     return _to_leave_out(leave)
+
+
+# --- Module 15: Leave Calendar & Team View ---
+@router.get("/calendar", response_model=List[LeaveCalendarEvent])
+def get_leave_calendar(
+    department: Optional[str] = None,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = db.query(Leave).join(Employee)
+    
+    if department:
+        query = query.filter(Employee.department == department)
+    if status:
+        query = query.filter(Leave.status == LeaveStatus(status.upper()))
+    else:
+        # Default show approved and pending
+        query = query.filter(Leave.status.in_([LeaveStatus.APPROVED, LeaveStatus.PENDING]))
+
+    leaves = query.order_by(Leave.start_date.asc()).all()
+    events = []
+    for l in leaves:
+        if month and l.start_date.month != month and l.end_date.month != month:
+            continue
+        if year and l.start_date.year != year and l.end_date.year != year:
+            continue
+
+        days = float((l.end_date - l.start_date).days + 1)
+        events.append(LeaveCalendarEvent(
+            id=l.id,
+            employee_id=l.employee_id,
+            employee_name=l.employee.full_name if l.employee else "Unknown",
+            department=l.employee.department if l.employee else "General",
+            leave_type=l.leave_type,
+            start_date=l.start_date,
+            end_date=l.end_date,
+            days_count=days,
+            status=l.status
+        ))
+    return events
+
+
+@router.get("/conflicts", response_model=LeaveConflictResult)
+def check_leave_conflicts(
+    employee_id: int = Query(...),
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    target_emp = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not target_emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    # Conflict check: Look for colleagues in the same department with overlapping dates
+    overlapping = db.query(Leave).join(Employee).filter(
+        Employee.department == target_emp.department,
+        Employee.id != target_emp.id,
+        Leave.status.in_([LeaveStatus.APPROVED, LeaveStatus.PENDING]),
+        Leave.start_date <= end_date,
+        Leave.end_date >= start_date
+    ).all()
+
+    conflicts = []
+    for l in overlapping:
+        days = float((l.end_date - l.start_date).days + 1)
+        conflicts.append(LeaveCalendarEvent(
+            id=l.id,
+            employee_id=l.employee_id,
+            employee_name=l.employee.full_name if l.employee else "Unknown",
+            department=l.employee.department if l.employee else target_emp.department,
+            leave_type=l.leave_type,
+            start_date=l.start_date,
+            end_date=l.end_date,
+            days_count=days,
+            status=l.status
+        ))
+
+    has_conflict = len(conflicts) > 0
+    msg = (
+        f"Notice: {len(conflicts)} colleague(s) in {target_emp.department} have overlapping leaves during this period."
+        if has_conflict else "No scheduling conflicts detected in your department."
+    )
+
+    return LeaveConflictResult(
+        has_conflict=has_conflict,
+        conflict_count=len(conflicts),
+        conflicts=conflicts,
+        message=msg
+    )
+
+
+@router.get("/team-availability")
+def get_team_availability(
+    target_date: Optional[date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    check_date = target_date or date.today()
+    employees = db.query(Employee).filter(Employee.status == EmployeeStatus.ACTIVE).all()
+    
+    # Check leaves on check_date
+    on_leave = db.query(Leave).filter(
+        Leave.status == LeaveStatus.APPROVED,
+        Leave.start_date <= check_date,
+        Leave.end_date >= check_date
+    ).all()
+    leave_emp_ids = {l.employee_id: l for l in on_leave}
+
+    result = []
+    for e in employees:
+        is_on_leave = e.id in leave_emp_ids
+        leave_info = leave_emp_ids.get(e.id)
+        result.append({
+            "employee_id": e.id,
+            "full_name": e.full_name,
+            "department": e.department,
+            "designation": e.designation,
+            "status": "ON_LEAVE" if is_on_leave else "AVAILABLE",
+            "leave_type": leave_info.leave_type.value if leave_info else None,
+            "leave_range": f"{leave_info.start_date} to {leave_info.end_date}" if leave_info else None
+        })
+
+    return {
+        "date": check_date.strftime("%Y-%m-%d"),
+        "total_active": len(employees),
+        "on_leave_count": len(on_leave),
+        "available_count": len(employees) - len(on_leave),
+        "roster": result
+    }

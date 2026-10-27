@@ -1,17 +1,22 @@
 const API_BASE = '/api';
 
-function getAuthHeaders() {
+function getAuthHeaders(isMultipart = false) {
   const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  const headers = {};
+  if (!isMultipart) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
+  const isMultipart = options.body instanceof FormData;
   const headers = {
-    ...getAuthHeaders(),
+    ...getAuthHeaders(isMultipart),
     ...(options.headers || {}),
   };
 
@@ -61,12 +66,16 @@ export const api = {
 
   getMe: () => request('/auth/me'),
 
-  // Employees
+  // Employees (Module 9 & Module 20: Advanced Search & Multi-Filters)
   getEmployees: (params = {}) => {
     const searchParams = new URLSearchParams();
     if (params.search) searchParams.append('search', params.search);
     if (params.department) searchParams.append('department', params.department);
+    if (params.role) searchParams.append('role', params.role);
     if (params.status) searchParams.append('status', params.status);
+    if (params.shift_id) searchParams.append('shift_id', params.shift_id);
+    if (params.attendance_today) searchParams.append('attendance_today', params.attendance_today);
+    if (params.min_rating) searchParams.append('min_rating', params.min_rating);
     const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
     return request(`/employees${queryString}`);
   },
@@ -90,7 +99,7 @@ export const api = {
       method: 'DELETE',
     }),
 
-  // Attendance
+  // Attendance (Module 10 & Module 14)
   getTodayAttendance: () => request('/attendance/today'),
 
   checkIn: () =>
@@ -126,7 +135,43 @@ export const api = {
     });
   },
 
-  // Leaves & Balances
+  // Shifts (Module 14: Shift Management)
+  getShifts: () => request('/shifts'),
+
+  createShift: (shiftData) =>
+    request('/shifts', {
+      method: 'POST',
+      body: JSON.stringify(shiftData),
+    }),
+
+  updateShift: (id, shiftData) =>
+    request(`/shifts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(shiftData),
+    }),
+
+  deleteShift: (id) =>
+    request(`/shifts/${id}`, {
+      method: 'DELETE',
+    }),
+
+  getShiftAssignments: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.employee_id) searchParams.append('employee_id', params.employee_id);
+    if (params.shift_id) searchParams.append('shift_id', params.shift_id);
+    const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request(`/shifts/assignments${queryString}`);
+  },
+
+  assignShift: (payload) =>
+    request('/shifts/assign', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getMyShift: () => request('/shifts/my-shift'),
+
+  // Leaves & Balances (Module 11 & Module 15: Leave Calendar)
   getLeaves: (params = {}) => {
     const searchParams = new URLSearchParams();
     if (params.status) searchParams.append('status', params.status);
@@ -160,7 +205,95 @@ export const api = {
     return request(`/leaves/balances${query}`);
   },
 
-  // Payroll
+  getLeaveCalendar: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.department) searchParams.append('department', params.department);
+    if (params.month) searchParams.append('month', params.month);
+    if (params.year) searchParams.append('year', params.year);
+    if (params.status) searchParams.append('status', params.status);
+    const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request(`/leaves/calendar${queryString}`);
+  },
+
+  checkLeaveConflicts: (employeeId, startDate, endDate) => {
+    return request(`/leaves/conflicts?employee_id=${employeeId}&start_date=${startDate}&end_date=${endDate}`);
+  },
+
+  getTeamAvailability: (targetDate) => {
+    const query = targetDate ? `?target_date=${targetDate}` : '';
+    return request(`/leaves/team-availability${query}`);
+  },
+
+  // Document Management System (Module 16)
+  getDocuments: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.employee_id) searchParams.append('employee_id', params.employee_id);
+    if (params.document_type) searchParams.append('document_type', params.document_type);
+    const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request(`/documents${queryString}`);
+  },
+
+  uploadDocument: (formData) =>
+    request('/documents/upload', {
+      method: 'POST',
+      body: formData,
+    }),
+
+  downloadDocumentUrl: (id) => `/api/documents/${id}/download`,
+
+  deleteDocument: (id) =>
+    request(`/documents/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Performance Management (Module 17)
+  getPerformanceReviews: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.employee_id) searchParams.append('employee_id', params.employee_id);
+    if (params.review_period) searchParams.append('review_period', params.review_period);
+    const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request(`/performance${queryString}`);
+  },
+
+  createPerformanceReview: (data) =>
+    request('/performance', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updatePerformanceReview: (id, data) =>
+    request(`/performance/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deletePerformanceReview: (id) =>
+    request(`/performance/${id}`, {
+      method: 'DELETE',
+    }),
+
+  getPerformanceStats: () => request('/performance/stats'),
+
+  // Advanced Analytics & Reports (Module 18)
+  getAnalyticsOverview: (days = 7) => request(`/analytics/overview?days=${days}`),
+
+  exportReport: async (reportType) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`/api/analytics/export?report_type=${reportType}`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+    });
+    if (!response.ok) throw new Error("Failed to export report");
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `${reportType}_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  },
+
+  // Payroll (Module 12)
   getPayrollList: (params = {}) => {
     const searchParams = new URLSearchParams();
     if (params.month) searchParams.append('month', params.month);
@@ -219,8 +352,11 @@ export const api = {
 
   getAdminSystemStats: () => request('/admin/system-stats'),
 
-  // Notifications
-  getNotifications: () => request('/notifications'),
+  // Smart Notifications & Alerts (Module 19)
+  getNotifications: (category = 'ALL') => {
+    const query = category && category !== 'ALL' ? `?category=${category}` : '';
+    return request(`/notifications${query}`);
+  },
 
   markNotificationRead: (id) =>
     request(`/notifications/${id}/read`, {
@@ -230,5 +366,15 @@ export const api = {
   markAllNotificationsRead: () =>
     request('/notifications/read-all', {
       method: 'PUT',
+    }),
+
+  deleteNotification: (id) =>
+    request(`/notifications/${id}`, {
+      method: 'DELETE',
+    }),
+
+  clearAllNotifications: () =>
+    request('/notifications/clear/all', {
+      method: 'DELETE',
     }),
 };

@@ -159,7 +159,8 @@ def generate_payroll(
         db.add(Notification(
             user_id=emp.user.id,
             title=f"Payslip Generated for {record.month}",
-            message=f"Payslip for {record.month} generated. Net Disbursed: ₹{record.net_salary:,.2f}."
+            message=f"Payslip for {record.month} generated. Net Disbursed: ₹{record.net_salary:,.2f}.",
+            category="PAYROLL"
         ))
         db.commit()
 
