@@ -28,6 +28,19 @@ class LeaveStatus(str, enum.Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
 
+class OnboardingStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+
+class ResignationStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+class TaskStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+
 class User(Base):
     __tablename__ = "users"
 
@@ -41,6 +54,7 @@ class User(Base):
 
     employee = relationship("Employee", back_populates="user", uselist=False, cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 class Employee(Base):
     __tablename__ = "employees"
@@ -53,6 +67,10 @@ class Employee(Base):
     joining_date = Column(Date, nullable=False, default=date.today)
     salary = Column(Float, nullable=False, default=0.0)
     status = Column(Enum(EmployeeStatus), default=EmployeeStatus.ACTIVE, nullable=False)
+    phone = Column(String(30), nullable=True)
+    address = Column(String(255), nullable=True)
+    emergency_contact = Column(String(100), nullable=True)
+    bio = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="employee")
     attendances = relationship("Attendance", back_populates="employee", cascade="all, delete-orphan")
@@ -62,6 +80,10 @@ class Employee(Base):
     employee_shifts = relationship("EmployeeShift", back_populates="employee", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="employee", cascade="all, delete-orphan")
     performances = relationship("Performance", back_populates="employee", cascade="all, delete-orphan")
+    onboardings = relationship("Onboarding", back_populates="employee", cascade="all, delete-orphan")
+    resignations = relationship("Resignation", back_populates="employee", cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="employee", cascade="all, delete-orphan")
+    feedbacks = relationship("Feedback", back_populates="employee", cascade="all, delete-orphan")
 
 class Shift(Base):
     __tablename__ = "shifts"
@@ -189,8 +211,79 @@ class Notification(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(150), nullable=False)
     message = Column(Text, nullable=False)
-    category = Column(String(50), default="SYSTEM", nullable=False)  # ATTENDANCE, LEAVE, PAYROLL, SHIFT, PERFORMANCE, DOCUMENT
+    category = Column(String(50), default="SYSTEM", nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", back_populates="notifications")
+
+class Onboarding(Base):
+    __tablename__ = "onboarding"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    task_name = Column(String(255), nullable=False)
+    status = Column(Enum(OnboardingStatus), default=OnboardingStatus.PENDING, nullable=False)
+    due_date = Column(Date, nullable=False)
+
+    employee = relationship("Employee", back_populates="onboardings")
+
+class Resignation(Base):
+    __tablename__ = "resignations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    reason = Column(Text, nullable=False)
+    notice_period = Column(String(50), nullable=False, default="30 Days")
+    status = Column(Enum(ResignationStatus), default=ResignationStatus.PENDING, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    employee = relationship("Employee", back_populates="resignations")
+
+class Announcement(Base):
+    __tablename__ = "announcements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    message = Column(Text, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    author = relationship("User")
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    assigned_to = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(Date, nullable=False)
+    status = Column(Enum(TaskStatus), default=TaskStatus.PENDING, nullable=False)
+
+    employee = relationship("Employee", back_populates="tasks")
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    message = Column(Text, nullable=False)
+    rating = Column(Float, nullable=False, default=5.0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    employee = relationship("Employee", back_populates="feedbacks")
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    email_notifications = Column(Boolean, default=True, nullable=False)
+    in_app_notifications = Column(Boolean, default=True, nullable=False)
+    leave_alerts = Column(Boolean, default=True, nullable=False)
+    task_alerts = Column(Boolean, default=True, nullable=False)
+    announcement_alerts = Column(Boolean, default=True, nullable=False)
+
+    user = relationship("User", back_populates="settings")
+

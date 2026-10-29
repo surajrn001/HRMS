@@ -3,7 +3,9 @@ from database import SessionLocal, engine, Base
 from models import (
     User, Employee, Attendance, Leave, Payroll, Notification,
     LeavePolicy, LeaveBalance, Shift, EmployeeShift, Document, Performance,
-    UserRole, EmployeeStatus, AttendanceStatus, LeaveType, LeaveStatus
+    Onboarding, Resignation, Announcement, Task, Feedback, UserSettings,
+    UserRole, EmployeeStatus, AttendanceStatus, LeaveType, LeaveStatus,
+    OnboardingStatus, ResignationStatus, TaskStatus
 )
 from auth import get_password_hash
 
@@ -46,20 +48,32 @@ def seed(force_reset: bool = False):
         users[username] = u
     db.commit()
 
-    # 2. Employees roster
+    # User Settings for all accounts
+    for u in users.values():
+        db.add(UserSettings(
+            user_id=u.id,
+            email_notifications=True,
+            in_app_notifications=True,
+            leave_alerts=True,
+            task_alerts=True,
+            announcement_alerts=True
+        ))
+    db.commit()
+
+    # 2. Employees roster with rich profile information
     roster = [
-        ("admin", "Rajesh Sharma", "Director of Engineering & Systems Admin", "Executive Management", date(2022, 4, 1), 240000.0, EmployeeStatus.ACTIVE),
-        ("neha_hr", "Neha Kulkarni", "Manager - People Operations & HR", "Human Resources", date(2023, 2, 15), 115000.0, EmployeeStatus.ACTIVE),
-        ("suraj", "Suraj", "Senior Full-Stack Engineer", "Engineering", date(2023, 7, 1), 135000.0, EmployeeStatus.ACTIVE),
-        ("priya_ui", "Priya Nair", "Lead UI/UX Product Designer", "Design & UX", date(2023, 11, 10), 95000.0, EmployeeStatus.ACTIVE),
-        ("rohit_qa", "Rohit Deshmukh", "QA Automation Engineer", "Engineering", date(2024, 1, 15), 78000.0, EmployeeStatus.ACTIVE),
-        ("sneha_fin", "Sneha Iyer", "Senior Accounts & Payroll Executive", "Finance & Accounts", date(2024, 3, 1), 85000.0, EmployeeStatus.ACTIVE),
-        ("vikram_sales", "Vikram Malhotra", "Business Development Manager", "Sales & Growth", date(2024, 5, 20), 105000.0, EmployeeStatus.ACTIVE),
-        ("kunal_contractor", "Kunal Verma", "Contract Frontend Consultant", "Engineering", date(2024, 8, 1), 70000.0, EmployeeStatus.INACTIVE),
+        ("admin", "Rajesh Sharma", "Director of Engineering & Systems Admin", "Executive Management", date(2022, 4, 1), 240000.0, EmployeeStatus.ACTIVE, "+91 98765 43210", "Indiranagar, Bengaluru, Karnataka", "+91 98765 00001 (Spouse)", "Passionate engineering leader overseeing enterprise architecture, platforms and cloud infrastructure."),
+        ("neha_hr", "Neha Kulkarni", "Manager - People Operations & HR", "Human Resources", date(2023, 2, 15), 115000.0, EmployeeStatus.ACTIVE, "+91 98765 43211", "Koramangala 4th Block, Bengaluru", "+91 98765 00002 (Brother)", "Dedicated to fostering transparent employee culture, talent growth, and seamless workplace experiences."),
+        ("suraj", "Suraj", "Senior Full-Stack Engineer", "Engineering", date(2023, 7, 1), 135000.0, EmployeeStatus.ACTIVE, "+91 98765 43212", "HSR Layout Sector 2, Bengaluru", "+91 98765 00003 (Father)", "Core full-stack developer specializing in scalable distributed microservices, React, and Python ecosystems."),
+        ("priya_ui", "Priya Nair", "Lead UI/UX Product Designer", "Design & UX", date(2023, 11, 10), 95000.0, EmployeeStatus.ACTIVE, "+91 98765 43213", "BTM Layout 2nd Stage, Bengaluru", "+91 98765 00004 (Mother)", "Crafting human-centered design systems, micro-interactions, and accessible web experiences."),
+        ("rohit_qa", "Rohit Deshmukh", "QA Automation Engineer", "Engineering", date(2024, 1, 15), 78000.0, EmployeeStatus.ACTIVE, "+91 98765 43214", "Whitefield, Bengaluru", "+91 98765 00005 (Sister)", "Champion of automated test pipelines, reliability engineering, and continuous integration."),
+        ("sneha_fin", "Sneha Iyer", "Senior Accounts & Payroll Executive", "Finance & Accounts", date(2024, 3, 1), 85000.0, EmployeeStatus.ACTIVE, "+91 98765 43215", "JP Nagar 7th Phase, Bengaluru", "+91 98765 00006 (Spouse)", "Managing payroll calculations, compliance governance, tax filings, and institutional compensation."),
+        ("vikram_sales", "Vikram Malhotra", "Business Development Manager", "Sales & Growth", date(2024, 5, 20), 105000.0, EmployeeStatus.ACTIVE, "+91 98765 43216", "Bellandur, Bengaluru", "+91 98765 00007 (Spouse)", "Scaling enterprise HRMS partnerships across India and Southeast Asia."),
+        ("kunal_contractor", "Kunal Verma", "Contract Frontend Consultant", "Engineering", date(2024, 8, 1), 70000.0, EmployeeStatus.INACTIVE, "+91 98765 43217", "Marathahalli, Bengaluru", "+91 98765 00008 (Friend)", "Former contract engineer. Exit formalities completed."),
     ]
 
     staff = {}
-    for uname, name, title, dept, doj, salary, emp_stat in roster:
+    for uname, name, title, dept, doj, salary, emp_stat, phone, addr, e_contact, bio in roster:
         emp = Employee(
             user_id=users[uname].id,
             full_name=name,
@@ -67,7 +81,11 @@ def seed(force_reset: bool = False):
             department=dept,
             joining_date=doj,
             salary=salary,
-            status=emp_stat
+            status=emp_stat,
+            phone=phone,
+            address=addr,
+            emergency_contact=e_contact,
+            bio=bio
         )
         db.add(emp)
         staff[uname] = emp
@@ -346,9 +364,95 @@ def seed(force_reset: bool = False):
     for uid, title, msg, cat, read in notifications:
         db.add(Notification(user_id=uid, title=title, message=msg, category=cat, is_read=read))
 
+    # 12. Onboarding System (Module 21)
+    onboard_tasks = [
+        # Suraj
+        (staff["suraj"].id, "Submit Identity & Tax Proof Documents", OnboardingStatus.COMPLETED, today - timedelta(days=10)),
+        (staff["suraj"].id, "Complete Workstation & Security Credentials Setup", OnboardingStatus.COMPLETED, today - timedelta(days=8)),
+        (staff["suraj"].id, "Attend Engineering Architecture & Codebase Walkthrough", OnboardingStatus.COMPLETED, today - timedelta(days=5)),
+        (staff["suraj"].id, "Review Production Release & CI/CD Guidelines", OnboardingStatus.PENDING, today + timedelta(days=3)),
+        # Priya
+        (staff["priya_ui"].id, "Sign Employee Agreement & Non-Disclosure NDA", OnboardingStatus.COMPLETED, today - timedelta(days=15)),
+        (staff["priya_ui"].id, "Setup Figma Enterprise Workspace & UI Assets", OnboardingStatus.COMPLETED, today - timedelta(days=12)),
+        (staff["priya_ui"].id, "Review Design System Component Tokens & Guidelines", OnboardingStatus.COMPLETED, today - timedelta(days=7)),
+        (staff["priya_ui"].id, "Complete HR Culture & WorkSphere Introduction", OnboardingStatus.COMPLETED, today - timedelta(days=4)),
+        # Vikram
+        (staff["vikram_sales"].id, "Submit Previous Employer Relieving & Experience Letter", OnboardingStatus.COMPLETED, today - timedelta(days=6)),
+        (staff["vikram_sales"].id, "Configure CRM Account & Sales Playbook Setup", OnboardingStatus.COMPLETED, today - timedelta(days=3)),
+        (staff["vikram_sales"].id, "Shadow Lead Sales Executive on Enterprise Demo", OnboardingStatus.PENDING, today + timedelta(days=2)),
+        (staff["vikram_sales"].id, "Complete Anti-Bribery & Compliance Certification", OnboardingStatus.PENDING, today + timedelta(days=5)),
+        (staff["vikram_sales"].id, "Attend Sales Target & Territory Alignment Meeting", OnboardingStatus.PENDING, today + timedelta(days=9)),
+    ]
+    for eid, tname, stat, ddate in onboard_tasks:
+        db.add(Onboarding(employee_id=eid, task_name=tname, status=stat, due_date=ddate))
     db.commit()
+
+    # 13. Resignation & Exit Management (Module 22)
+    db.add(Resignation(
+        employee_id=staff["kunal_contractor"].id,
+        reason="Admitted to Master of Science program at RWTH Aachen University, Germany. Sincere thanks for the valuable experience!",
+        notice_period="30 Days",
+        status=ResignationStatus.APPROVED,
+        created_at=datetime.utcnow() - timedelta(days=40)
+    ))
+    db.commit()
+
+    # 14. Internal Announcements (Module 23)
+    announcements_data = [
+        ("🎉 Annual WorkSphere Tech Summit & Hackathon 2026", "We are thrilled to announce our 4th Annual Engineering Summit in Bengaluru on November 14-15! Register your teams for the 24-hour innovation hackathon with exciting cash prizes and executive mentorship.", users["admin"].id, 2),
+        ("📢 Updated Flexible Hybrid Work Policy & Core Collaboration Hours", "Effective this month, team members can utilize up to 2 remote workdays per week with manager coordination. Core collaboration hours remain 10:30 AM to 04:30 PM across all departments.", users["neha_hr"].id, 5),
+        ("🌟 WorkSphere Achieves ISO 27001 & SOC-2 Type II Certification", "Hearty congratulations to our Security, QA, and Engineering teams on successfully clearing the rigorous external security and data privacy audits with zero findings!", users["admin"].id, 8),
+        ("🌿 Comprehensive Employee Health & Wellness Coverage Upgrade", "Our group medical insurance coverage has been enhanced to ₹10,00,000 per family unit, now including complimentary annual executive health checkups and mental wellness sessions.", users["neha_hr"].id, 14),
+    ]
+    for title, msg, author_id, days_ago in announcements_data:
+        db.add(Announcement(
+            title=title,
+            message=msg,
+            created_by=author_id,
+            created_at=datetime.utcnow() - timedelta(days=days_ago)
+        ))
+    db.commit()
+
+    # 15. Task Assignment & Tracking (Module 24)
+    tasks_data = [
+        (staff["suraj"].id, "Implement Google Calendar & iCal Export Engine", "Develop standard RFC 5545 calendar feed generation for employee shifts and leaves.", today + timedelta(days=3), TaskStatus.COMPLETED),
+        (staff["suraj"].id, "Refactor Notification Broadcast Queue", "Optimize database queries and add categorization tags for announcement alerts.", today + timedelta(days=5), TaskStatus.PENDING),
+        (staff["suraj"].id, "Prepare Phase 4 Interactive Architecture Review", "Create comprehensive walkthrough slides for Q4 engineering leadership demo.", today + timedelta(days=7), TaskStatus.PENDING),
+        (staff["priya_ui"].id, "Design High-Fidelity UI for Onboarding Checklist", "Create accessible checklist cards with progress bars and smooth celebration micro-interactions.", today + timedelta(days=2), TaskStatus.COMPLETED),
+        (staff["priya_ui"].id, "Design System Dark Mode Contrast Audit", "Verify WCAG AAA contrast compliance across all text muted and badge elements.", today + timedelta(days=6), TaskStatus.PENDING),
+        (staff["rohit_qa"].id, "Build Automated Test Cases for Exit Workflow", "Verify resignation submission, approval notifications, and employee status update lifecycle.", today + timedelta(days=4), TaskStatus.PENDING),
+        (staff["rohit_qa"].id, "Validate CSV Data Export Formats", "Ensure UTF-8 encoded CSV downloads work seamlessly in Microsoft Excel and Google Sheets.", today + timedelta(days=6), TaskStatus.PENDING),
+        (staff["sneha_fin"].id, "Q3 TDS & Statutory PF Reconciliation", "Reconcile monthly employee deductions with bank transmission statements.", today + timedelta(days=8), TaskStatus.PENDING),
+    ]
+    for eid, title, desc, due_d, stat in tasks_data:
+        db.add(Task(
+            assigned_to=eid,
+            title=title,
+            description=desc,
+            due_date=due_d,
+            status=stat
+        ))
+    db.commit()
+
+    # 16. Employee Feedback System (Module 26)
+    feedback_data = [
+        (staff["suraj"].id, "WorkSphere has transformed our day-to-day workflow. The ESS portal with shift schedules, leaves, and instant document downloads is exceptionally well designed!", 5.0, 3),
+        (staff["priya_ui"].id, "Great design-first culture! The UI components feel crisp and the collaboration between product and engineering is top-tier.", 4.8, 5),
+        (staff["rohit_qa"].id, "Continuous focus on software quality and automated testing tools makes daily releases painless.", 4.6, 7),
+        (staff["sneha_fin"].id, "The automated payroll calculation with allowance and tax deductions saves days of manual accounting work every month.", 4.5, 10),
+        (staff["vikram_sales"].id, "Smooth onboarding experience. Would love to see more CRM webhooks and export capabilities added.", 4.2, 12),
+    ]
+    for eid, msg, rating, days_ago in feedback_data:
+        db.add(Feedback(
+            employee_id=eid,
+            message=msg,
+            rating=rating,
+            created_at=datetime.utcnow() - timedelta(days=days_ago)
+        ))
+    db.commit()
+
     db.close()
-    print("Database successfully seeded for Phase 3 (Shifts, Leave Calendar, Document Vault, Performance Reviews, Analytics & Smart Notifications).")
+    print("Database successfully seeded for Phase 4 (Onboarding, Exit Management, Announcements, Tasks, Feedback, Profile & Integrations).")
 
 if __name__ == "__main__":
     seed(force_reset=True)

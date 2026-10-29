@@ -13,7 +13,14 @@ import {
   Building2,
   FileText,
   Star,
-  BarChart3
+  BarChart3,
+  UserCheck,
+  Megaphone,
+  ListTodo,
+  HeartHandshake,
+  Layers,
+  Settings,
+  User as UserIcon
 } from 'lucide-react';
 import './App.css';
 import { api } from './services/api';
@@ -27,6 +34,13 @@ import AdminControlsView from './views/AdminControlsView';
 import DocumentsView from './views/DocumentsView';
 import PerformanceView from './views/PerformanceView';
 import AnalyticsView from './views/AnalyticsView';
+import OnboardingView from './views/OnboardingView';
+import ExitManagementView from './views/ExitManagementView';
+import AnnouncementsView from './views/AnnouncementsView';
+import TasksView from './views/TasksView';
+import IntegrationsView from './views/IntegrationsView';
+import FeedbackView from './views/FeedbackView';
+import ProfileSettingsView from './views/ProfileSettingsView';
 import NotificationsModal from './components/NotificationsModal';
 
 export default function App() {
@@ -145,11 +159,18 @@ export default function App() {
     ...(canManageEmployees ? [{ id: 'employees', label: 'Employee Directory', icon: Users }] : []),
     { id: 'attendance', label: 'Attendance & Shifts', icon: Clock },
     { id: 'leaves', label: 'Leaves & Calendar', icon: CalendarDays },
+    { id: 'tasks', label: 'Tasks & Deliverables', icon: ListTodo },
+    { id: 'onboarding', label: isEmployee ? 'My Onboarding' : 'Onboarding Hub', icon: UserCheck },
+    { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'documents', label: 'Document Vault', icon: FileText },
     { id: 'performance', label: 'Performance Reviews', icon: Star },
+    { id: 'feedback', label: 'Sentiment & Feedback', icon: HeartHandshake },
     ...(canManageEmployees ? [{ id: 'analytics', label: 'Workforce Analytics', icon: BarChart3 }] : []),
     { id: 'payroll', label: 'Payroll & Payslips', icon: CreditCard },
+    { id: 'exit', label: isEmployee ? 'Exit & Separation' : 'Exit Management', icon: LogOut },
+    { id: 'integrations', label: 'Integrations & Export', icon: Layers },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin Controls', icon: ShieldCheck }] : []),
+    { id: 'settings', label: 'Profile & Settings', icon: Settings },
   ];
 
   return (
@@ -190,11 +211,16 @@ export default function App() {
 
         {/* User Card in Sidebar Bottom */}
         <div
+          id="sidebar-user-card"
           style={{
             padding: '14px 16px',
             borderTop: '1px solid var(--border-subtle)',
-            background: 'rgba(0,0,0,0.02)',
+            background: activeTab === 'settings' ? 'var(--primary-light)' : 'rgba(0,0,0,0.02)',
+            cursor: 'pointer',
+            transition: 'background 0.15s ease',
           }}
+          onClick={() => setActiveTab('settings')}
+          title="Click to view Profile & Settings"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
@@ -247,24 +273,53 @@ export default function App() {
         {/* Topbar */}
         <header className="topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h2 style={{ fontSize: '1.2rem', margin: 0 }}>
+            <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 700 }}>
               {activeTab === 'dashboard'
-                ? isEmployee
-                  ? 'Employee Self-Service (ESS)'
-                  : 'Overview Dashboard'
+                ? isEmployee ? 'Employee Self-Service (ESS)' : 'Overview Dashboard'
                 : activeTab === 'employees'
                 ? 'Employee Directory & Staff'
                 : activeTab === 'attendance'
                 ? 'Daily Attendance & Shifts'
                 : activeTab === 'leaves'
-                ? 'Leave Tracker & Balances'
+                ? 'Leave Tracker & Calendar'
+                : activeTab === 'tasks'
+                ? isEmployee ? 'My Assigned Tasks' : 'Internal Task Operations'
+                : activeTab === 'onboarding'
+                ? isEmployee ? 'My Onboarding Checklist' : 'Employee Onboarding Hub'
+                : activeTab === 'announcements'
+                ? 'Company Announcements & Bulletin'
+                : activeTab === 'documents'
+                ? 'Secure Document Vault'
+                : activeTab === 'performance'
+                ? 'Performance Reviews & Goals'
+                : activeTab === 'feedback'
+                ? 'Employee Sentiment & Feedback'
+                : activeTab === 'analytics'
+                ? 'Workforce Intelligence & Analytics'
                 : activeTab === 'payroll'
                 ? 'Payroll & Compensation'
-                : 'Admin Controls & Governance'}
+                : activeTab === 'exit'
+                ? isEmployee ? 'Exit & Separation Portal' : 'Resignation & Exit Management'
+                : activeTab === 'integrations'
+                ? 'Third-Party Integrations & Data Exports'
+                : activeTab === 'admin'
+                ? 'Admin Controls & Governance'
+                : 'Profile & Account Settings'}
             </h2>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Profile & Settings Button */}
+            <button
+              id="btn-topbar-profile"
+              className={`btn ${activeTab === 'settings' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ padding: '8px' }}
+              onClick={() => setActiveTab('settings')}
+              title="Profile & Account Settings"
+            >
+              <UserIcon size={18} />
+            </button>
+
             {/* Notification Bell */}
             <div style={{ position: 'relative' }}>
               <button
@@ -328,11 +383,18 @@ export default function App() {
           {activeTab === 'employees' && canManageEmployees && <EmployeesView user={currentUser} />}
           {activeTab === 'attendance' && <AttendanceView user={currentUser} />}
           {activeTab === 'leaves' && <LeavesView user={currentUser} />}
+          {activeTab === 'tasks' && <TasksView user={currentUser} />}
+          {activeTab === 'onboarding' && <OnboardingView user={currentUser} />}
+          {activeTab === 'announcements' && <AnnouncementsView user={currentUser} />}
           {activeTab === 'documents' && <DocumentsView user={currentUser} />}
           {activeTab === 'performance' && <PerformanceView user={currentUser} />}
+          {activeTab === 'feedback' && <FeedbackView user={currentUser} />}
           {activeTab === 'analytics' && canManageEmployees && <AnalyticsView user={currentUser} />}
           {activeTab === 'payroll' && <PayrollView user={currentUser} />}
+          {activeTab === 'exit' && <ExitManagementView user={currentUser} />}
+          {activeTab === 'integrations' && <IntegrationsView user={currentUser} />}
           {activeTab === 'admin' && isAdmin && <AdminControlsView currentUser={currentUser} />}
+          {activeTab === 'settings' && <ProfileSettingsView user={currentUser} onProfileUpdated={setCurrentUser} />}
         </main>
       </div>
 

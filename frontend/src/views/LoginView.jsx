@@ -197,6 +197,7 @@ export default function LoginView({ onLoginSuccess }) {
               <div style={{ position: 'relative' }}>
                 <User size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                 <input
+                  id="login-username"
                   type="text"
                   required
                   className="form-input"
@@ -214,6 +215,7 @@ export default function LoginView({ onLoginSuccess }) {
                 <div style={{ position: 'relative' }}>
                   <Mail size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input
+                    id="register-email"
                     type="email"
                     required
                     className="form-input"
@@ -231,6 +233,7 @@ export default function LoginView({ onLoginSuccess }) {
               <div style={{ position: 'relative' }}>
                 <Lock size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                 <input
+                  id="login-password"
                   type="password"
                   required
                   className="form-input"

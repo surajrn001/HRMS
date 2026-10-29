@@ -17,7 +17,14 @@ from routers import (
     shifts,
     documents,
     performance,
-    analytics
+    analytics,
+    onboarding,
+    resignations,
+    announcements,
+    tasks,
+    integrations,
+    feedback,
+    profile
 )
 
 # Initialize database tables
@@ -25,8 +32,8 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="WorkSphere – Enterprise HRMS API",
-    description="Intelligent Automated HRMS with Shifts, Team Leave Calendar, Document Management, Performance Reviews & Advanced Analytics",
-    version="3.0.0"
+    description="Intelligent Automated HRMS Platform with Employee Experience, Onboarding, Exit Workflows, Internal Tasks, Announcements, Feedback, and Integrations",
+    version="4.0.0"
 )
 
 # Configure CORS for local development and frontend client
@@ -51,6 +58,13 @@ app.include_router(shifts.router)
 app.include_router(documents.router)
 app.include_router(performance.router)
 app.include_router(analytics.router)
+app.include_router(onboarding.router)
+app.include_router(resignations.router)
+app.include_router(announcements.router)
+app.include_router(tasks.router)
+app.include_router(integrations.router)
+app.include_router(feedback.router)
+app.include_router(profile.router)
 
 @app.on_event("startup")
 def startup_event():
@@ -61,9 +75,9 @@ def startup_event():
 def root():
     return {
         "system": "WorkSphere HRMS",
-        "phase": "Phase 3 – Automation, Insights & Smart HR Features",
+        "phase": "Phase 4 – Employee Experience & System Integrations",
         "status": "online",
-        "version": "3.0.0",
+        "version": "4.0.0",
         "docs_url": "/docs"
     }
 

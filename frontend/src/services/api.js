@@ -377,4 +377,173 @@ export const api = {
     request('/notifications/clear/all', {
       method: 'DELETE',
     }),
+
+  // --- Module 21: Employee Onboarding System ---
+  getOnboarding: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.employee_id) searchParams.append('employee_id', params.employee_id);
+    if (params.status) searchParams.append('status_filter', params.status);
+    const qs = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request(`/onboarding${qs}`);
+  },
+  getOnboardingProgress: (employeeId) => {
+    const qs = employeeId ? `?employee_id=${employeeId}` : '';
+    return request(`/onboarding/progress${qs}`);
+  },
+  getOnboardingOverview: () => request('/onboarding/overview'),
+  createOnboardingTask: (taskData) =>
+    request('/onboarding', {
+      method: 'POST',
+      body: JSON.stringify(taskData),
+    }),
+  assignDefaultOnboarding: (employeeId) =>
+    request(`/onboarding/assign-defaults/${employeeId}`, {
+      method: 'POST',
+    }),
+  updateOnboardingStatus: (taskId, status) =>
+    request(`/onboarding/${taskId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
+  deleteOnboardingTask: (taskId) =>
+    request(`/onboarding/${taskId}`, {
+      method: 'DELETE',
+    }),
+
+  // --- Module 22: Resignation & Exit Management ---
+  getResignations: (statusFilter) => {
+    const qs = statusFilter ? `?status_filter=${statusFilter}` : '';
+    return request(`/resignations${qs}`);
+  },
+  getResignation: (id) => request(`/resignations/${id}`),
+  submitResignation: (data) =>
+    request('/resignations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateResignationStatus: (id, status) =>
+    request(`/resignations/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
+
+  // --- Module 23: Internal Announcements System ---
+  getAnnouncements: (search = '') => {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return request(`/announcements${qs}`);
+  },
+  getAnnouncement: (id) => request(`/announcements/${id}`),
+  createAnnouncement: (data) =>
+    request('/announcements', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  deleteAnnouncement: (id) =>
+    request(`/announcements/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // --- Module 24: Task Assignment & Tracking ---
+  getTasks: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.assigned_to) searchParams.append('assigned_to', params.assigned_to);
+    if (params.status) searchParams.append('status_filter', params.status);
+    const qs = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request(`/tasks${qs}`);
+  },
+  getTaskStats: (assignedTo) => {
+    const qs = assignedTo ? `?assigned_to=${assignedTo}` : '';
+    return request(`/tasks/stats${qs}`);
+  },
+  createTask: (data) =>
+    request('/tasks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateTaskStatus: (taskId, status) =>
+    request(`/tasks/${taskId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
+  deleteTask: (taskId) =>
+    request(`/tasks/${taskId}`, {
+      method: 'DELETE',
+    }),
+
+  // --- Module 25: Third-Party Integrations ---
+  sendTestEmail: (data) =>
+    request('/integrations/email/test', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getEmailLogs: () => request('/integrations/email/logs'),
+  getGoogleCalendarLink: (title, startTime, endTime, dateStr) => {
+    const p = new URLSearchParams({ title, start_time: startTime, end_time: endTime });
+    if (dateStr) p.append('event_date', dateStr);
+    return request(`/integrations/calendar/google-link?${p.toString()}`);
+  },
+  getCalendarIcsUrl: () => {
+    const token = localStorage.getItem('token');
+    return `${API_BASE}/integrations/calendar/ics${token ? `?token=${token}` : ''}`;
+  },
+  downloadCalendarIcs: async () => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_BASE}/integrations/calendar/ics`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Failed to download calendar .ics feed');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'worksphere_schedule.ics';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
+  downloadExportCsv: async (reportType) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_BASE}/integrations/export/csv?report_type=${reportType}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`Failed to export ${reportType} report`);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `worksphere_${reportType}_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
+
+  // --- Module 26: Employee Feedback System ---
+  getFeedback: () => request('/feedback'),
+  getFeedbackSummary: () => request('/feedback/summary'),
+  submitFeedback: (data) =>
+    request('/feedback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // --- Module 27: Profile & Settings Management ---
+  getProfile: () => request('/profile'),
+  updateProfile: (data) =>
+    request('/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  changePassword: (data) =>
+    request('/profile/password', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  getUserSettings: () => request('/profile/settings'),
+  updateUserSettings: (data) =>
+    request('/profile/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 };

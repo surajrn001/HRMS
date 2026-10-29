@@ -1,23 +1,23 @@
 # WorkSphere – HR Management System (HRMS)
 
 **WorkSphere** is a modern, enterprise-grade HR Management System built using **FastAPI** (Python 3.13) and **React** (Vite).
-Following the completion of Phase 1 and Phase 2, **Phase 3** enhances WorkSphere into an intelligent, automated HR platform with **Automated Attendance & Shift Management**, **Team Leave Calendar & Out-of-Office Conflicts**, a **Secure Document Management Vault**, a **Performance Review & Ratings System**, **Advanced Workforce Analytics & CSV Reports**, **Smart Notifications & Alert Categorization**, and **Advanced Multi-Faceted Employee Search**.
+Following the completion of Phases 1, 2, and 3, **Phase 4** enhances WorkSphere into an interactive, connected, and scalable platform with **Employee Onboarding System**, **Resignation & Exit Management**, **Internal Company Announcements**, **Internal Task Assignment & Tracking**, **Third-Party Integrations (RFC 5545 iCalendar & Google Calendar Sync, Email Notifications, CSV Exports)**, **Employee Sentiment & Feedback System**, and **Personal Profile & Settings Management**.
 
 ---
 
 ## 🏛️ System Architecture
 
 ```
-WorkSphere HRMS (Phase 3 Enterprise Upgrade)
+WorkSphere HRMS (Phase 4 Enterprise Upgrade)
 ├── backend/
 │   ├── venv/                   # Python Virtual Environment
 │   ├── database.py             # SQLite / SQLAlchemy Engine & Session
-│   ├── models.py               # ORM Models (Users, Employees, Shifts, EmployeeShifts, Attendance, Leaves, LeavePolicy, LeaveBalance, Documents, Performance, Payroll, Notifications)
+│   ├── models.py               # ORM Models (Users, Employees, Attendance, Leaves, Payroll, Notifications, Shifts, Documents, Performance, Onboarding, Resignations, Announcements, Tasks, Feedback, UserSettings)
 │   ├── schemas.py              # Pydantic Schemas for Validation & Serialization
 │   ├── auth.py                 # JWT Authentication, is_active checks & RBAC Guards
-│   ├── seed_data.py            # Phase 3 Database Seeding (Shifts, Docs, Performance, Balances, Payroll)
-│   ├── test_api.py             # Comprehensive Test Suite (100% Passing)
-│   ├── main.py                 # FastAPI Application with CORS & Phase 3 Routers
+│   ├── seed_data.py            # Phase 4 Database Seeding (Onboarding, Resignations, Announcements, Tasks, Feedback, Profiles, Settings)
+│   ├── test_api.py             # Comprehensive 27-Module Test Suite (100% Passing)
+│   ├── main.py                 # FastAPI Application with CORS & Phase 4 Routers (v4.0.0)
 │   ├── uploads/                # Encrypted Local Vault for Verified Employee Documents
 │   └── routers/
 │       ├── auth.py             # /api/auth (Login, Register, Me)
@@ -31,7 +31,14 @@ WorkSphere HRMS (Phase 3 Enterprise Upgrade)
 │       ├── payroll.py          # /api/payroll (Generate Breakdown, Summary, Payslip)
 │       ├── dashboard.py        # /api/dashboard (Executive KPIs & ESS Personal Telemetry)
 │       ├── notifications.py    # /api/notifications (Categorized Alerts, Mark Read, Clear/Delete)
-│       └── admin.py            # /api/admin (User Management, Role Assignments, Status Toggles, Security Stats)
+│       ├── admin.py            # /api/admin (User Management, Role Assignments, Status Toggles, Security Stats)
+│       ├── onboarding.py       # /api/onboarding (Checklists, Progress Metrics, Defaults, Task Status) [Module 21]
+│       ├── resignations.py     # /api/resignations (Submit, Approve/Reject, Notice Periods, Timeline) [Module 22]
+│       ├── announcements.py    # /api/announcements (Bulletin Board, Broadcast Notifications, Search) [Module 23]
+│       ├── tasks.py            # /api/tasks (Internal Task Assignment, Dashboard Stats, Status Toggles) [Module 24]
+│       ├── integrations.py     # /api/integrations (RFC 5545 .ics Feed, Google Calendar Sync, Email Logs, CSV Exports) [Module 25]
+│       ├── feedback.py         # /api/feedback (5-Star Ratings, Sentiment Dashboard, HR Summary) [Module 26]
+│       └── profile.py          # /api/profile (Personal Details, Password Change, Notification Preferences) [Module 27]
 │
 └── frontend/
     ├── src/
@@ -39,7 +46,7 @@ WorkSphere HRMS (Phase 3 Enterprise Upgrade)
     │   │   ├── NotificationsModal.jsx  # Smart Alerts Drawer with 8 Category Filters & Clear All
     │   │   └── PayslipModal.jsx        # Indian Form 16 Salary Payslip Receipt (HRA, Spl, PF, Tax)
     │   ├── views/
-    │   │   ├── LoginView.jsx           # JWT Auth, Register, 1-Click Role Logins (Admin, HR, Emp, Deactive)
+    │   │   ├── LoginView.jsx           # JWT Auth, Register, 1-Click Role Logins
     │   │   ├── DashboardView.jsx       # Employee Self-Service (ESS) Portal & Executive KPI Dashboard
     │   │   ├── EmployeesView.jsx       # Advanced Search & Multi-Filters (Shift, Rating, Attendance, Role)
     │   │   ├── AttendanceView.jsx      # Shift Schedule Display, Shift Roster Modal, Late Entry Alerts
@@ -48,10 +55,17 @@ WorkSphere HRMS (Phase 3 Enterprise Upgrade)
     │   │   ├── PerformanceView.jsx     # Module 17 Performance Reviews, Star Ratings, Stats & Goal Tracking
     │   │   ├── AnalyticsView.jsx       # Module 18 Visual Trend Charts, Department Reports & CSV Export
     │   │   ├── PayrollView.jsx         # Salary Breakdown Generator, Monthly Summary KPI Bar, Payslips
-    │   │   └── AdminControlsView.jsx   # Module 13 User Governance, Role Assignment, Activation Switches
+    │   │   ├── AdminControlsView.jsx   # Module 13 User Governance, Role Assignment, Activation Switches
+    │   │   ├── OnboardingView.jsx      # Module 21 Onboarding Checklist & New Hire Progress Hub
+    │   │   ├── ExitManagementView.jsx  # Module 22 Resignation Workflow & Separation Tracker
+    │   │   ├── AnnouncementsView.jsx   # Module 23 Company Announcements Noticeboard & Full Detail Modal
+    │   │   ├── TasksView.jsx           # Module 24 Internal Task Dashboard, Metrics, & Assignment Modal
+    │   │   ├── IntegrationsView.jsx    # Module 25 CSV Data Export Center, iCal & Google Calendar Sync, Email Service
+    │   │   ├── FeedbackView.jsx        # Module 26 5-Star Sentiment Rating Picker & Satisfaction Distribution
+    │   │   └── ProfileSettingsView.jsx # Module 27 Profile Details, Password Change, Notification Preferences
     │   ├── services/
-    │   │   └── api.js                  # Centralized Fetch Client with Bearer Token & Phase 3 APIs
-    │   ├── App.jsx                     # Shell Layout, RBAC Route Protection, Dynamic Role Navigation
+    │   │   └── api.js                  # Centralized Fetch Client with Bearer Token & All Phase 1-4 APIs
+    │   ├── App.jsx                     # Shell Layout, Dynamic Role Navigation, Profile Header Quick-Action
     │   ├── App.css                     # Custom Layouts & Components
     │   └── index.css                   # Enterprise CSS Design System (Badges, Switch Toggles, Progress Bars)
     └── vite.config.js                  # Vite Config with Backend Proxy
@@ -59,25 +73,31 @@ WorkSphere HRMS (Phase 3 Enterprise Upgrade)
 
 ---
 
-## 📸 Phase 3 Feature Showcase (Screenshots)
+## 📸 System Showcase & Visual Proof (All Modules)
 
-| Feature & Module | Screenshot Preview |
+| Module & Feature | Screenshot |
 |---|---|
-| **Secure Authentication & Role Portals** | ![Login Portal](Screenshots/clean_login.png) |
-| **Employee Self-Service (ESS) & Executive KPIs** | ![Dashboard Overview](Screenshots/clean_employee_dashboard.png) |
-| **Module 14: Shift Schedules & Timing** | ![Shift Schedule](Screenshots/phase3_shifts_schedule.png) |
-| **Module 14: Shift Rosters & Assignment** | ![Shift Rosters Modal](Screenshots/phase3_shift_rosters_modal.png) |
-| **Module 15: Team Leave Calendar** | ![Team Leave Calendar](Screenshots/phase3_team_leave_calendar.png) |
-| **Module 15: Team Availability Dashboard** | ![Team Availability](Screenshots/phase3_team_availability.png) |
-| **Module 16: Document Vault & Uploads** | ![Document Vault](Screenshots/phase3_document_vault.png) |
-| **Module 17: Performance Reviews & Ratings** | ![Performance Reviews](Screenshots/phase3_performance_reviews.png) |
-| **Module 18: Workforce Analytics & Trends** | ![Workforce Analytics](Screenshots/phase3_workforce_analytics.png) |
-| **Module 19: Smart Notifications & Alerts** | ![Smart Notifications](Screenshots/phase3_smart_notifications.png) |
-| **Module 20: Advanced Employee Search & Filters** | ![Advanced Search & Filters](Screenshots/phase3_advanced_employee_filters.png) |
+| **Authentication & Role Portals** | ![Login Portal](Screenshots/login.png) |
+| **Executive & Employee Dashboard** | ![Dashboard Overview](Screenshots/dashboard.png) |
+| **Employee Directory & Multi-Filters** | ![Employee Directory](Screenshots/employees.png) |
+| **Attendance & Shift Management** | ![Attendance & Shifts](Screenshots/attendance.png) |
+| **Leave Management & Team Calendar** | ![Leave Management](Screenshots/leaves.png) |
+| **Payroll & Salary Generator** | ![Payroll](Screenshots/payroll.png) |
+| **Performance Reviews & Ratings** | ![Performance Reviews](Screenshots/performance.png) |
+| **Secure Document Vault** | ![Document Vault](Screenshots/documents.png) |
+| **Workforce Analytics & Trends** | ![Workforce Analytics](Screenshots/analytics.png) |
+| **Admin Controls & Governance** | ![Admin Controls](Screenshots/admin.png) |
+| **Module 21: Onboarding Checklist** | ![Onboarding System](Screenshots/onboarding.png) |
+| **Module 22: Resignation & Exit Workflow** | ![Exit Management](Screenshots/exit.png) |
+| **Module 23: Company Announcements** | ![Announcements](Screenshots/announcements.png) |
+| **Module 24: Task Assignment & Tracking** | ![Task Tracking](Screenshots/tasks.png) |
+| **Module 25: Third-Party Integrations** | ![System Integrations](Screenshots/integrations.png) |
+| **Module 26: Employee Feedback & Sentiment** | ![Feedback System](Screenshots/feedback.png) |
+| **Module 27: Profile & Settings** | ![Profile Settings](Screenshots/settings.png) |
 
 ---
 
-## 🚀 Complete 20-Module Feature Breakdown
+## 🚀 Complete 27-Module Feature Breakdown (Phases 1–4)
 
 ### Phase 1: Core Foundation & HR Workflows (Modules 1–7)
 - **Module 1**: Modern responsive SPA foundation with minimalist design system.
@@ -156,6 +176,47 @@ WorkSphere HRMS (Phase 3 Enterprise Upgrade)
 
 ---
 
+### Phase 4: Employee Experience & System Integrations (Modules 21–27)
+
+#### Module 21: Employee Onboarding System
+- **Structured Onboarding Checklists**: Automatically assigns standard orientation milestones (e.g., complete profile, submit tax forms, setup email, review company handbook) to new joiners.
+- **Progress Tracking & Visual Gauges**: Real-time completion progress bar and fraction stats (e.g., 75% complete).
+- **Interactive Checklists**: Employees can mark tasks as completed in real time.
+- **HR Onboarding Hub**: HR and Admin view company-wide onboarding progress across all recent hires.
+
+#### Module 22: Resignation & Exit Management
+- **Self-Service Resignation Submission**: Employees can submit formal resignation requests with reason and notice period (in days).
+- **Multi-Role Workflow Approval**: HR and Admin can review, approve, or reject resignation requests.
+- **Separation & Exit Tracker**: Clear status badges (`PENDING`, `APPROVED`, `REJECTED`) and handover details.
+
+#### Module 23: Internal Company Announcements
+- **Organization Noticeboard**: Broadcast important company-wide updates, events, policy changes, and celebrations.
+- **Announcement Detail Modals**: Read full announcements with publication timestamps and author details.
+- **Real-Time Broadcast Notifications**: New announcements automatically dispatch high-priority system alerts.
+
+#### Module 24: Internal Task Assignment & Tracking
+- **Task Management Engine**: Assign internal deliverables with title, description, priority (`LOW`, `MEDIUM`, `HIGH`), and due dates.
+- **Status Progression**: Employees can toggle task completion status (`PENDING` ↔ `COMPLETED`).
+- **Personal Task Metrics**: Metric cards displaying total assigned, completed, pending tasks, and completion percentage.
+
+#### Module 25: Third-Party Integrations & Data Exchange
+- **RFC 5545 iCalendar (`.ics`) Feed**: Standardized calendar feed integration allowing employees to subscribe to company shifts and leaves in Outlook/Apple Calendar.
+- **1-Click Google Calendar Sync**: Instant URL generator for adding shifts and holidays directly to Google Calendar.
+- **Email Notification Simulator & Audit Log**: System audit logs recording email dispatches with delivery status and timestamp.
+- **Centralized CSV Export Center**: 1-click exports for Employees, Attendance, Payroll, Leaves, Onboarding, and Resignation datasets.
+
+#### Module 26: Employee Sentiment & Feedback System
+- **5-Star Interactive Rating**: Intuitive visual star picker for anonymous or identified employee feedback.
+- **Sentiment & Ratings Analytics**: HR view of overall organization satisfaction score and rating distributions.
+- **Continuous Improvement Loop**: Helps management gauge team morale and address operational roadblocks.
+
+#### Module 27: Personal Profile & Settings Management
+- **Personal Details Management**: Update contact phone number, residential address, emergency contact, and biographical statement.
+- **Security & Password Management**: Self-service password changes with old password verification and hashing.
+- **User Experience Preferences**: Toggle email notification preferences, desktop push alerts, and theme preferences.
+
+---
+
 ## 🔑 Default Seeded Accounts & Credentials
 
 | Role | Username | Password | Full Name | Department | Assigned Shift |
@@ -182,14 +243,14 @@ cd backend
 
 Expected output:
 ```
-=== Testing WorkSphere Phase 3 (Automation, Insights & Smart HR Features) ===
- [OK] Root health check & Phase 3 API version 3.0.0 verified
+=== Testing WorkSphere Phase 4 (Employee Experience & System Integrations) ===
+ [OK] Root health check & Phase 4 API version 4.0.0 verified
  [OK] Admin, HR, and Employee JWT authentication tokens verified
  [OK] Shift Management: Retrieved 4 shifts (General: 09:30 - 18:30)
  [OK] Employee Shift View: Active shift 'General Shift' confirmed for Suraj
  [OK] Shift Assignments: HR retrieved 8 active assignments
  [OK] Team Leave Calendar: 5 calendar events loaded
- [OK] Leave Conflict Engine: Evaluated schedule (has_conflict=False)
+ [OK] Leave Conflict Engine: Evaluated schedule (has_conflict=True)
  [OK] Team Availability Dashboard: 7 active available team members
  [OK] Document Vault: Employee retrieved 3 verified personal documents
  [OK] Secure Document Download: Downloaded document 3 successfully
@@ -204,8 +265,36 @@ Expected output:
  [OK] Advanced Search: Found employee by name 'Suraj'
  [OK] Shift Filter: Filtered 5 employees in General Shift
  [OK] Performance Filter: Found 4 employees with >= 4.5 avg rating
+ [OK] Onboarding: Employee retrieved 4 assigned onboarding checklist tasks
+ [OK] Onboarding Progress: 3/4 completed (75.0%)
+ [OK] Onboarding Overview: HR reviewed onboarding progress for 3 new team members
+ [OK] Onboarding Task Toggle: Marked task 1 as COMPLETED
+ [OK] Exit Management: HR retrieved 2 exit records (Found approved exit for Kunal)
+ [OK] Resignation Submission: Successfully submitted resignation request ID=3
+ [OK] Resignation Approval: HR approved exit workflow for ID=3
+ [OK] Internal Announcements: Employee loaded 5 organization notices
+ [OK] Announcement Broadcast: HR posted live announcement (ID=6)
+ [OK] Internal Tasks: Employee retrieved 4 assigned work items
+ [OK] Task Stats: 2/4 tasks completed (Rate: 50.0%)
+ [OK] Task Assignment: HR assigned new task ID=10
+ [OK] Task Status Update: Employee marked task ID=10 as COMPLETED
+ [OK] Email Integration: Successfully dispatched test notification email
+ [OK] Email Audit Logs: Retrieved 1 dispatch logs
+ [OK] Calendar Integration: RFC 5545 .ics iCalendar file generated and verified
+ [OK] Calendar Integration: 1-click Google Calendar URL generation verified
+ [OK] Report Exports: Successfully exported all 6 CSV datasets (employees, attendance, payroll, leaves, onboarding, resignations)
+ [OK] Employee Feedback: Employee retrieved 2 submitted feedback items
+ [OK] Feedback Submission: Recorded 5.0* employee feedback
+ [OK] Feedback Analytics: 7 total reviews with average satisfaction 4.73*
+ [OK] Profile Management: Loaded profile for 'Suraj' (Senior Full-Stack Engineer)
+ [OK] Profile Update: Updated employee bio successfully
+ [OK] User Preferences: Updated notification settings successfully
+ [OK] Password Security: Verified current password and updated to new hash
+ [OK] Password Revert: Restored test password to original
 
- All 20 WorkSphere Modules (Phase 1, 2, and 3) verified successfully with 100% test pass!
+==========================================================================
+ SUCCESS: All 27 WorkSphere Modules (Phase 1, 2, 3 & 4) 100% VERIFIED!
+==========================================================================
 ```
 
 ---
